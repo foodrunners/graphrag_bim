@@ -1,0 +1,16 @@
+from_id,relation,to_id,basis,evidence_id
+coa25v1.1/5.2.2(d),applies_to,space:accessible-washroom,reviewer_mapping,coa25v1.1/5.2.2(d)
+fc23@2026-11-20/6.3.5c.(1)(a)(i),applies_to,space:accessible-washroom,reviewer_mapping,fc23@2026-11-20/6.3.5c.(1)(a)(i)
+coa25v1.1/5.2.2(d),cites,coa25v1.1/5.8.4,explicit_citation,coa25v1.1/5.2.2(d)
+coa25v1.1/5.8.4,contains,coa25v1.1/5.8.4.1,document_structure,coa25v1.1/5.8.4.1
+coa25v1.1/5.8.4,contains,coa25v1.1/5.8.4.2,document_structure,coa25v1.1/5.8.4.2
+coa25v1.1/5.8.4,contains,coa25v1.1/5.8.4.3,document_structure,coa25v1.1/5.8.4.3
+coa25v1.1/5.8.4,concerns_system,system:assistance-alarm,reviewer_mapping,coa25v1.1/5.8.4
+fc23@2026-11-20/6.3.5c.(1)(a)(i),concerns_system,system:fire-alarm,reviewer_mapping,fc23@2026-11-20/6.3.5c.(1)(a)(i)
+fc23@2026-11-20/2.4.1b.,applies_to,space:escape-route-ramp,reviewer_mapping,fc23@2026-11-20/2.4.1b.
+fc23@2026-11-20/2.4.1b.,cites_document,doc:accessibility-code,explicit_citation,fc23@2026-11-20/2.4.1b.
+coa25v1.1/4.6.2.1,applies_to,space:escape-route-ramp,reviewer_mapping,coa25v1.1/4.6.2.1
+coa25v1.1/4.6.2.1,cites,coa25v1.1/Table 4,explicit_citation,coa25v1.1/4.6.2.1
+ad7.08/D.2.2,applies_to,space:accessible-washroom,reviewer_mapping,ad7.08/D.2.2
+ad7.08/D.3.1,cites_document,doc:accessibility-code,explicit_citation,ad7.08/D.3.1
+ad7.08/D.3.1,acceptable_solution_for,ad7.08/D.2.2,explicit_provision,ad7.08/D.3.1

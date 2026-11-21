@@ -1,0 +1,25 @@
+# Extending the Singapore regulatory graph
+
+## The first two design questions
+
+| Topic | Trace to the published provisions | Design evidence to request |
+|---|---|---|
+| Alarms for an accessible individual washroom | BCA §§5.2.2(d) and 5.8.4 cover a user calling for assistance. SCDF §6.3.5c.(1)(a)(i) deals with warning a toilet occupant of a building fire under its stated conditions. Both paths meet at a room. Each carries its own system ID and trigger. | Room identifier, use and fire-alarm protection of the building, electrical layout and device schedule. For the assistance path, check the receiving point. For the fire-warning path, check the visual device against the actual room and cubicle layout. |
+| A minor change of level on an escape route for persons with disabilities | SCDF §2.4.1b names the BCA Accessibility Code. The curated ramp topic points to BCA §4.6.2.1, which itself cites Table 4. The SCDF citation targets the document. A reviewer selected the detailed gradient provision. | The route classification, applicable exemptions, ramp location, rise, horizontal run and landings. Resolve the project edition and read the relevant table row. |
+
+[BCA assistance alarms, PDF p. 81](https://file.go.gov.sg/bca-coa2025.pdf#page=81) · [SCDF electrical fire alarms](https://www.scdf.gov.sg/fire-safety-services-listing/fire-code-2023/table-of-content/chapter-6-firefighting-systems/clause-6.3-electrical-fire-alarm-system) · [SCDF escape routes](https://www.scdf.gov.sg/fire-safety-services-listing/fire-code-2023/table-of-content/chapter-2-means-of-escape/clause-2.4-special-requirements-for-persons-with-disabilities-pwds) · [BCA ramp gradient, PDF p. 46](https://file.go.gov.sg/bca-coa2025.pdf#page=46)
+
+## Add the Building Control Regulations
+
+1. **Choose the design question.** For a statutory starting point, use the accessibility provisions of the Fifth Schedule. The BCA Approved Document already identifies the Accessibility Code in D.3.1 as an acceptable route for D.2.1–D.2.4. A link such as `acceptable_solution_for` preserves that meaning. [Building Control Regulations 2003, Fifth Schedule](https://sso.agc.gov.sg/SL/BCA1989-S666-2003?ProvIds=Sc5-) · [Approved Document, PDF p. 39](https://isomer-user-content.by.gov.sg/338/9b829cff-5743-47b1-8fbf-b4c8f426d6df/approved-document-v7-07.pdf#page=39)
+2. **Register the edition.** Add one source to [sources.json](../01_source/sources.json). Give it a stable document ID and a separate edition or dated snapshot ID. Record the official URL, issuing body, instrument type and applicable commencement or transition rule. On an amended website, capture the current provision and its circular. Keep historical wording distinguishable from the live provision. [SCDF Fire Code and amendment circulars](https://www.scdf.gov.sg/fire-safety-services-listing/fire-code-2023)
+3. **Add clause records.** In [multicode.json](../02_evidence/multicode.json), enter the source ID, clause number, parent condition, content type, concise summary and exact PDF page or webpage clause locator. Retain exceptions, tables, figures and definitions that affect the test. For a referenced Singapore Standard, record its citation and edition, and use the text available under your licence.
+4. **Connect through a named object.** Reuse a specific concept such as an accessible individual washroom, escape-route ramp or fire alarm system. In [links.csv](../02_evidence/links.csv), distinguish an authored citation from a reviewer mapping. Record which clause supports each edge. Keep proposed graph-search links in a review queue until someone can identify their supporting source.
+5. **Tie the answer to the project.** Identify the space or element by building, storey and room ID or IFC GlobalId. Record the model or drawing revision and the evidence for each system. If the only item on a washroom schedule is a pull-cord, the visual fire warning remains unverified whenever its SCDF trigger applies. If initial project information cannot establish that trigger, record an applicability question.
+6. **Rebuild and check.** Rerun the three commands in the multi-code README section and add a known-answer test for your question. If a provision changes, add its new version and effective date, record a supersession link and revisit questions whose answers cite the changed record. Filter a production query to the project's applicable editions before expanding links.
+
+## What ran
+
+The multi-code pilot indexed 11 editorial records from three official documents with Microsoft GraphRAG 3.3.0's local noun-phrase workflow. An `alarm` search retrieved records from both BCA and SCDF. The typed-link trace then reached the two distinct systems and the BCA Approved Document's acceptable-solution provision. The ramp trace reached the BCA document citation and Table 4 through different, labelled links.
+
+The standard model-backed GraphRAG index and Q&A use the configured chat and embedding endpoints. The pilot validation covers local retrieval, source tracing and the regression checks. Project applicability and evidence review are manual. The Building Control Regulations are the next proposed source.

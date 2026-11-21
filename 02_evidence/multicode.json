@@ -1,0 +1,116 @@
+{
+  "concepts": [
+    {
+      "id": "space:accessible-washroom",
+      "label": "Accessible individual washroom",
+      "type": "space",
+      "topic": "washroom"
+    },
+    {
+      "id": "space:escape-route-ramp",
+      "label": "Ramp on an accessible escape route",
+      "type": "element and route",
+      "topic": "ramp"
+    },
+    {
+      "id": "system:assistance-alarm",
+      "label": "Emergency assistance alarm",
+      "type": "system"
+    },
+    {
+      "id": "system:fire-alarm",
+      "label": "Electrical fire alarm",
+      "type": "system"
+    }
+  ],
+  "clauses": [
+    {
+      "source_id": "coa25v1.1",
+      "code_ref": "5.2.2(d)",
+      "record_kind": "requirement",
+      "applies_when": "Accessible individual washrooms, including larger ones, and accessible changing rooms.",
+      "summary": "These rooms require an emergency assistance alarm. The provision points to section 5.8.4.",
+      "pdf_page": 63
+    },
+    {
+      "source_id": "coa25v1.1",
+      "code_ref": "5.8.4",
+      "record_kind": "section",
+      "applies_when": "Emergency assistance in the facilities to which the section applies.",
+      "summary": "This section covers the help control, its location and identification, the outside indicator and the receiving office.",
+      "pdf_page": 81
+    },
+    {
+      "source_id": "coa25v1.1",
+      "code_ref": "5.8.4.1",
+      "record_kind": "requirement",
+      "applies_when": "When the emergency assistance alarm is required.",
+      "summary": "The user activates the assistance alarm with a waterproof push-button or a pull-cord.",
+      "pdf_page": 81
+    },
+    {
+      "source_id": "coa25v1.1",
+      "code_ref": "5.8.4.2",
+      "record_kind": "requirement",
+      "applies_when": "For the assistance alarm control.",
+      "summary": "Check its height of 400–600 mm above the floor, colour contrast and adjacent call sign.",
+      "pdf_page": 81
+    },
+    {
+      "source_id": "coa25v1.1",
+      "code_ref": "5.8.4.3",
+      "record_kind": "requirement",
+      "applies_when": "For the facilities listed in this provision.",
+      "summary": "Locate the indicator outside the room and connect it to one permitted destination: management office, fire command centre or caregiver’s office.",
+      "pdf_page": 81
+    },
+    {
+      "source_id": "coa25v1.1",
+      "code_ref": "4.6.2.1",
+      "record_kind": "requirement",
+      "applies_when": "Ramps within section 4.6.",
+      "summary": "Use Table 4 for the gradient and keep it uniform between landings.",
+      "pdf_page": 46
+    },
+    {
+      "source_id": "coa25v1.1",
+      "code_ref": "Table 4",
+      "record_kind": "table locator",
+      "applies_when": "Select the row corresponding to the change in level.",
+      "summary": "Consult the actual rise and gradient row and its headings on the source page.",
+      "pdf_page": 43
+    },
+    {
+      "source_id": "fc23@2026-11-20",
+      "code_ref": "6.3.5c.(1)(a)(i)",
+      "record_kind": "requirement",
+      "applies_when": "A building protected by a fire alarm system, with a location where a person with hearing impairment can be isolated.",
+      "summary": "Provide visual fire warning in addition to audible warning. The listed locations include toilets and the inside of full-height partitioned cubicles.",
+      "section_url": "https://www.scdf.gov.sg/fire-safety-services-listing/fire-code-2023/table-of-content/chapter-6-firefighting-systems/clause-6.3-electrical-fire-alarm-system"
+    },
+    {
+      "source_id": "fc23@2026-11-20",
+      "code_ref": "2.4.1b.",
+      "record_kind": "requirement",
+      "applies_when": "Where section 2.4 applies to an escape route for persons with disabilities and there is a minor level change within a storey. Check exemptions in 2.4.1a.",
+      "summary": "SCDF calls for a ramp and expressly references the Code on Accessibility in the Built Environment for its requirements.",
+      "section_url": "https://www.scdf.gov.sg/fire-safety-services-listing/fire-code-2023/table-of-content/chapter-2-means-of-escape/clause-2.4-special-requirements-for-persons-with-disabilities-pwds"
+    },
+    {
+      "source_id": "ad7.08",
+      "code_ref": "D.2.2",
+      "record_kind": "performance requirement",
+      "applies_when": "Provision of accessible sanitary facilities.",
+      "summary": "The performance requirement covers suitable sanitary facilities for people with disabilities and for children in the specified height range.",
+      "pdf_page": 39
+    },
+    {
+      "source_id": "ad7.08",
+      "code_ref": "D.3.1",
+      "record_kind": "acceptable solution",
+      "applies_when": "Accessibility performance requirements D.2.1 through D.2.4.",
+      "summary": "Compliance with the Accessibility Code is an accepted way of satisfying the stated requirements. Section A.1 also describes the alternative-solution route.",
+      "pdf_page": 39
+    }
+  ]
+}

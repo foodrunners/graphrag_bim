@@ -1,0 +1,80 @@
+[
+  {
+    "ref": "Amendment history",
+    "kind": "edition history",
+    "page": 2,
+    "start": "History of Amendments",
+    "until": "©",
+    "verify": ["1 March 2026", "Clause 5.1.3", "Clause 5.2.2"]
+  },
+  {
+    "ref": "Table 1 row 11",
+    "kind": "table row",
+    "page": 20,
+    "start": "11.",
+    "until": "12.",
+    "verify": ["Place of worship", "LWC"],
+    "navigation": "In the legend on this page LWC means larger accessible individual washroom. See clause 5.1.3(d) for the provision trigger."
+  },
+  {
+    "ref": "5.1.3(d)",
+    "kind": "mandatory clause",
+    "page": 61,
+    "start": "5.1.3",
+    "until": "5.1.4",
+    "item": "d",
+    "verify": ["at every level", "place of worship", "clause 5.2"],
+    "navigation": "The Code cites section 5.2. This pilot follows 5.2.1(b) and 5.2.2(d) within that section."
+  },
+  {
+    "ref": "5.2.1(b)",
+    "kind": "mandatory clause",
+    "page": 63,
+    "start": "5.2.1",
+    "until": "5.2.2",
+    "item": "b",
+    "verify": ["Figure 44", "1800 mm", "2100 mm"]
+  },
+  {
+    "ref": "Figure 44",
+    "kind": "figure locator",
+    "page": 65,
+    "start": "Figure 44",
+    "until": "Coat hook",
+    "verify": ["Larger Accessible Individual Washroom"],
+    "navigation": "Open the drawing on page 65 to interpret its layout, arrows and dimensions. This record carries only the figure caption."
+  },
+  {
+    "ref": "5.2.2(d)",
+    "kind": "mandatory clause",
+    "page": 63,
+    "start": "5.2.2",
+    "item": "d",
+    "verify": ["emergency assistance alarm system", "clause 5.8.4"],
+    "navigation": "Section 5.8.4 contains 5.8.4.1, 5.8.4.2 and 5.8.4.3."
+  },
+  {
+    "ref": "5.8.4.1",
+    "kind": "mandatory clause",
+    "page": 81,
+    "start": "5.8.4.1",
+    "until": "5.8.4.2",
+    "verify": ["waterproof", "pull-cord"]
+  },
+  {
+    "ref": "5.8.4.2",
+    "kind": "mandatory clause",
+    "page": 81,
+    "start": "5.8.4.2",
+    "until": "5.8.4.3",
+    "verify": ["400 mm", "600 mm", "Emergency Call"]
+  },
+  {
+    "ref": "5.8.4.3",
+    "kind": "mandatory clause",
+    "page": 81,
+    "start": "5.8.4.3",
+    "until": "5.8.5",
+    "verify": ["outside", "fire command centre", "caregiver"]
+  }
+]

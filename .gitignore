@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.agents/
+.obsidian/
+.env
+**/.env
+.env.*
+!.env.example
+*.zip
+01_source/output/
+02_evidence/output/
+03_graphrag/pilot/
+03_graphrag/full/
+03_graphrag/multicode/
+04_review/output/
