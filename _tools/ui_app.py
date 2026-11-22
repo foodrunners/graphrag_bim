@@ -16,6 +16,7 @@ from multicode import read_graph
 ROOT = Path(__file__).resolve().parents[1]
 FULL_OUT = ROOT / "03_graphrag" / "full" / "output"
 IFCSG_OUT = ROOT / "03_graphrag" / "ifcsg" / "output"
+SCDF_JSONL = ROOT / "02_evidence" / "output" / "scdf" / "records.jsonl"
 MATCHES_CSV = ROOT / "05_ifcsg" / "output" / "bca_to_ifcsg_matches.csv"
 BCA_PDF_URL = "https://file.go.gov.sg/bca-coa2025.pdf"
 
@@ -82,6 +83,13 @@ class ComplianceStore:
         self.bridge = load_bridge()
         self.mc_records, self.mc_labels, self.mc_topics, self.mc_links = read_graph()
         self.auto_matches = pd.read_csv(MATCHES_CSV) if MATCHES_CSV.is_file() else pd.DataFrame()
+        self.scdf_pages = []
+        if SCDF_JSONL.is_file():
+            self.scdf_pages = [
+                json.loads(line)
+                for line in SCDF_JSONL.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
 
         # Pre-index text_unit_id -> PDF page number
         doc_page = {}
@@ -104,6 +112,7 @@ class ComplianceStore:
             "bca_pages": len(self.bca_docs),
             "bca_entities": len(self.bca_entities),
             "bca_relationships": len(self.bca_rels),
+            "scdf_pages": len(self.scdf_pages),
             "ifcsg_components": int((self.ifc_entities["type"] == "COMPONENT").sum()),
             "ifcsg_entities": int((self.ifc_entities["type"] == "IFC_ENTITY").sum()),
             "ifcsg_psets": int((self.ifc_entities["type"] == "PROPERTY_SET").sum()),
@@ -229,6 +238,27 @@ class ComplianceStore:
                 })
         page_hits.sort(key=lambda x: (-x["score"], x["page"] or 999))
 
+        # 4b. SCDF Fire Code 2023 (540-page PDF) hits
+        scdf_hits = []
+        for row in self.scdf_pages:
+            text = str(row.get("text") or "")
+            sc = self._score_blob(f"{row.get('chapter','')} {row.get('code_ref','')} {text}", raw_terms, expanded_terms)
+            if sc > 0:
+                low = text.casefold()
+                pos = next((low.find(t) for t in raw_terms + expanded_terms if low.find(t) >= 0), 0)
+                start = max(0, pos - 140)
+                snippet = ("..." if start > 0 else "") + text[start:start + 520].strip() + ("..." if start + 520 < len(text) else "")
+                scdf_hits.append({
+                    "title": row.get("title", ""),
+                    "chapter": row.get("chapter", ""),
+                    "code_ref": row.get("code_ref", ""),
+                    "page": int(row["pdf_page"]) if str(row.get("pdf_page", "")).isdigit() else None,
+                    "pdf_url": row.get("source_url"),
+                    "score": sc,
+                    "snippet": snippet,
+                })
+        scdf_hits.sort(key=lambda x: (-x["score"], x["page"] or 999))
+
         # 5. IFC+SG Matched Components (direct text + pre-computed gemini-embedding-2 BCA->IFCSG matches)
         vector_boost = defaultdict(float)
         if not self.auto_matches.empty and matched_bca_titles:
@@ -339,6 +369,7 @@ class ComplianceStore:
                 "bca_measurements": bca_measurements,
                 "bca_objects": bca_objects,
                 "pdf_pages": page_hits[:12],
+                "scdf_pages": scdf_hits[:18],
             },
             "ifcsg": {
                 "components": top_components,
@@ -660,7 +691,8 @@ HTML_PAGE = r"""<!DOCTYPE html>
       <button class="tab active" onclick="switchDesignTab('checks', this)">Verified Checks & Cross-Code</button>
       <button class="tab" onclick="switchDesignTab('clauses', this)">BCA Clauses (116p Graph)</button>
       <button class="tab" onclick="switchDesignTab('measurements', this)">Dimensions & Conditions</button>
-      <button class="tab" onclick="switchDesignTab('pages', this)">Source PDF Pages</button>
+      <button class="tab" onclick="switchDesignTab('pages', this)">BCA PDF Pages</button>
+      <button class="tab" onclick="switchDesignTab('scdf', this)">SCDF Fire Code (540p)</button>
     </div>
     <div id="designBody"></div>
   </section>
@@ -727,14 +759,14 @@ async function runSearch() {
   currentData = await res.json();
   const s = currentData.stats;
   document.getElementById("statsLine").textContent =
-    `BCA COA 2025 v1.1 (${s.bca_pages} pages · ${s.bca_entities.toLocaleString()} entities)  |  CORENET X IFC+SG Sep 2026 (${s.ifcsg_components} components · ${s.ifcsg_entities} IFC4 entities · ${s.ifcsg_parameters.toLocaleString()} parameters · ${s.ifcsg_space_values.toLocaleString()} space values)`;
+    `BCA COA 2025 v1.1 (${s.bca_pages}p · ${s.bca_entities.toLocaleString()} entities)  |  SCDF Fire Code 2023 (${s.scdf_pages}p)  |  CORENET X IFC+SG Sep 2026 (${s.ifcsg_components} components · ${s.ifcsg_parameters.toLocaleString()} parameters)`;
   renderAgencyChips(s.agencies);
   document.getElementById("expandedInfo").textContent =
     `Matched terms (${currentData.expanded_terms.length}): ${currentData.expanded_terms.join(", ")}`;
   const d = currentData.design;
   const i = currentData.ifcsg;
   document.getElementById("designCount").textContent =
-    `${d.bridge_checks.length} checks · ${d.bca_clauses.length} clauses · ${d.pdf_pages.length} pages`;
+    `${d.bridge_checks.length} checks · ${d.bca_clauses.length} BCA clauses · ${d.scdf_pages.length} SCDF pages`;
   document.getElementById("ifcCount").textContent =
     `${i.components.length} components · ${i.parameters.length} parameters`;
   renderDesign();
@@ -819,13 +851,26 @@ function renderDesign() {
       </div>
     `).join("");
   } else if (designTab === "pages") {
-    if (!d.pdf_pages.length) { el.innerHTML = `<div class="empty">No matching PDF pages found.</div>`; return; }
+    if (!d.pdf_pages.length) { el.innerHTML = `<div class="empty">No matching BCA PDF pages found.</div>`; return; }
     el.innerHTML = d.pdf_pages.map(p => `
       <div class="card">
         <div class="card-title">
-          <span class="badge b-blue">PDF p. ${p.page}</span>
+          <span class="badge b-blue">BCA PDF p. ${p.page}</span>
           <span>${esc(p.title)}</span>
           ${p.pdf_url ? `<a style="margin-left:auto;font-size:12px;" href="${p.pdf_url}" target="_blank">Open Official PDF ↗</a>` : ""}
+        </div>
+        <p style="font-family:ui-monospace,Consolas,monospace;font-size:11.5px;white-space:pre-wrap;">${esc(p.snippet)}</p>
+      </div>
+    `).join("");
+  } else if (designTab === "scdf") {
+    if (!d.scdf_pages.length) { el.innerHTML = `<div class="empty">No matching SCDF Fire Code 2023 pages found.</div>`; return; }
+    el.innerHTML = d.scdf_pages.map(p => `
+      <div class="card">
+        <div class="card-title">
+          <span class="badge b-red">SCDF p. ${p.page}</span>
+          <span class="badge b-slate">${esc(p.code_ref)}</span>
+          <span style="font-size:12px;color:var(--muted);">${esc(p.chapter)}</span>
+          ${p.pdf_url ? `<a style="margin-left:auto;font-size:12px;" href="${esc(p.pdf_url)}" target="_blank">Open SCDF PDF ↗</a>` : ""}
         </div>
         <p style="font-family:ui-monospace,Consolas,monospace;font-size:11.5px;white-space:pre-wrap;">${esc(p.snippet)}</p>
       </div>

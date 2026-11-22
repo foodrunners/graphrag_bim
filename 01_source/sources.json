@@ -20,12 +20,15 @@
     "document_id": "doc:fire-code",
     "authority": "SCDF",
     "document": "Code of Practice for Fire Precautions in Buildings",
-    "edition": "Fire Code 2023, live clauses checked 2026-11-20",
+    "edition": "Fire Code 2023 (consolidated PDF 2026-07-07; live clauses checked 2026-11-20)",
     "source_kind": "technical code",
-    "checked_on": "2026-11-20",
+    "checked_on": "2026-11-22",
+    "revision_date": "2026-07-07",
     "effective_from": null,
     "applies_when": "Consult the live provision, exemptions and relevant amendment circular for the project date. Keep wording shown under Clause Before Amendment in a historical record.",
     "url": "https://www.scdf.gov.sg/fire-safety-services-listing/fire-code-2023",
+    "pdf_url": "https://www.scdf.gov.sg/docs/default-source/firecode-whole-document-with-annotations/firecode_full_latest_07jul2026.pdf?sfvrsn=a794fc8b_0",
+    "sha256": "e500e7e75af5a14b699b873adbef2ee376f4543dd0697e8cb95187a005a49228",
     "scope_source": "https://www.scdf.gov.sg/fire-safety-services-listing/downloads/acts-codes-and-regulations"
   },
   {

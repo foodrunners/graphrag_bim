@@ -25,6 +25,7 @@ EVIDENCE = ROOT / "02_evidence"
 ENGINE = ROOT / "03_graphrag"
 EDITION = json.loads((SOURCE / "edition.json").read_text(encoding="utf-8"))
 IFCSG_EDITION = json.loads((SOURCE / "ifcsg_edition.json").read_text(encoding="utf-8"))
+SCDF_EDITION = json.loads((SOURCE / "scdf_edition.json").read_text(encoding="utf-8"))
 
 
 def save(path, data):
@@ -58,6 +59,59 @@ def open_edition(local_copy):
     if not cached.exists() or local_copy:
         save(cached, data)
     return reader
+
+
+def open_scdf_edition(local_copy):
+    cached = SOURCE / "output" / SCDF_EDITION["filename"]
+    if local_copy or cached.exists():
+        data = (local_copy or cached).read_bytes()
+    else:
+        with urlopen(SCDF_EDITION["pdf"], timeout=180) as response:
+            data = response.read()
+    digest = sha256(data).hexdigest()
+    if digest != SCDF_EDITION["sha256"]:
+        raise ValueError(
+            "The SCDF Fire Code PDF differs from 01_source/scdf_edition.json. "
+            f"Got SHA-256 {digest}. Inspect amendments before updating scdf_edition.json."
+        )
+    reader = PdfReader(BytesIO(data))
+    if len(reader.pages) != SCDF_EDITION["page_count"]:
+        raise ValueError(f"SCDF PDF page count differs from scdf_edition.json ({len(reader.pages)} vs {SCDF_EDITION['page_count']}).")
+    if not cached.exists() or local_copy:
+        save(cached, data)
+    return reader, digest
+
+
+def records_for_scdf(reader):
+    rev = SCDF_EDITION["revision_date"]
+    url = SCDF_EDITION["pdf"]
+    current_chapter = "Front Matter"
+    for page, source_page in enumerate(reader.pages, 1):
+        raw_text = (source_page.extract_text() or "").strip()
+        text = re.sub(r"[ \t]+\n", "\n", raw_text)
+        text = re.sub(r"\n{3,}", "\n\n", text).strip()
+        if not text:
+            text = "Image-only page. Open the source SCDF Fire Code PDF for visual review."
+        ch_match = re.search(r"\b(CHAPTER\s+\d+\s*[-–:]?[^\n]{0,60}|APPENDIX\s+\d+[^\n]{0,60})", text, re.I)
+        if ch_match and page > 3:
+            current_chapter = " ".join(ch_match.group(1).split())
+        cl_matches = re.findall(r"\bCLAUSE\s+(\d+(?:\.\d+)*[^\n]{0,45})", text, re.I)
+        if cl_matches:
+            code_ref = "Clause " + " ".join(cl_matches[0].split())
+        else:
+            sub_matches = re.findall(r"(?m)^(\d+\.\d+(?:\.\d+)*[a-z]?)\s+", text)
+            code_ref = f"Clause {sub_matches[0]}" if sub_matches else f"PDF page {page}"
+        yield {
+            "id": f"SG-SCDF-FC2023-{rev}/p{page}",
+            "title": f"SCDF Fire Code 2023 ({rev}) | {code_ref} | p. {page}",
+            "authority": "SCDF",
+            "chapter": current_chapter,
+            "code_ref": code_ref,
+            "pdf_page": str(page),
+            "record_kind": "scdf fire code page",
+            "source_url": f"{url}#page={page}",
+            "text": text,
+        }
 
 
 def open_ifcsg_workbook(local_copy):
@@ -438,6 +492,10 @@ def initialize_engine(scope, provider="gemini"):
             config["chunking"]["prepend_metadata"] = [
                 "title", "source_sheet", "ifc_entity", "agencies", "discipline", "record_kind"
             ]
+        elif scope == "scdf":
+            config["chunking"]["prepend_metadata"] = [
+                "title", "authority", "chapter", "code_ref", "pdf_page"
+            ]
         else:
             config["chunking"]["prepend_metadata"] = ["title", "code_ref", "pdf_page", "record_kind"]
 
@@ -484,8 +542,8 @@ def initialize_engine(scope, provider="gemini"):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("scope", choices=["pilot", "full", "multicode", "ifcsg"])
-    parser.add_argument("--pdf", type=Path, help="Use an already downloaded copy of the pinned BCA PDF.")
+    parser.add_argument("scope", choices=["pilot", "full", "multicode", "ifcsg", "scdf"])
+    parser.add_argument("--pdf", type=Path, help="Use an already downloaded copy of the pinned BCA or SCDF PDF.")
     parser.add_argument("--xlsx", type=Path, help="Use an already downloaded copy of the pinned IFC+SG Excel file.")
     parser.add_argument(
         "--provider",
@@ -500,13 +558,22 @@ def main():
         rows = list(read_graph()[0].values())
     elif args.scope == "ifcsg":
         if args.pdf:
-            parser.error("--pdf is used only by the pilot and full BCA PDF scopes.")
+            parser.error("--pdf is used only by the pilot, full, and scdf PDF scopes.")
         wb, digest = open_ifcsg_workbook(args.xlsx)
         save(
             SOURCE / "output" / "ifcsg_check.md",
             f"pass\n\n{IFCSG_EDITION['filename']} ({IFCSG_EDITION['edition']}, {IFCSG_EDITION['revision_date']}). SHA-256 {digest}.\n".encode(),
         )
         rows = list(records_for_ifcsg(wb))
+    elif args.scope == "scdf":
+        if args.xlsx:
+            parser.error("--xlsx is used only by the ifcsg scope.")
+        reader, digest = open_scdf_edition(args.pdf)
+        save(
+            SOURCE / "output" / "scdf_check.md",
+            f"pass\n\n{SCDF_EDITION['page_count']} PDF pages ({SCDF_EDITION['filename']}, {SCDF_EDITION['revision_date']}). SHA-256 {digest}.\n".encode(),
+        )
+        rows = list(records_for_scdf(reader))
     else:
         if args.xlsx:
             parser.error("--xlsx is used only by the ifcsg scope.")
