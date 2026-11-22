@@ -52,6 +52,14 @@ class IfcSgBridgeTests(unittest.TestCase):
         self.assertEqual(_norm_agency("ALL"), "All")
         self.assertEqual(_stable_id("entity", "IfcSpace"), _stable_id("entity", "IfcSpace"))
 
+    def test_ui_synonym_expansion_maps_toilet_to_water_closet_and_lwc(self):
+        from ui_app import expand_terms
+        raw, expanded = expand_terms("toilet")
+        self.assertEqual(raw, ["toilet"])
+        self.assertIn("water closet", expanded)
+        self.assertIn("lwc", expanded)
+        self.assertIn("largeraccessible", expanded)
+
 
 if __name__ == "__main__":
     unittest.main()
