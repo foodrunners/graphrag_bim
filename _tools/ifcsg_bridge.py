@@ -10,6 +10,7 @@ from multicode import read_graph
 ROOT = Path(__file__).resolve().parents[1]
 BRIDGE_PATH = ROOT / "05_ifcsg" / "bridge.json"
 FULL_ENTITIES = ROOT / "03_graphrag" / "full" / "output" / "entities.parquet"
+SCDF_ENTITIES = ROOT / "03_graphrag" / "scdf" / "output" / "entities.parquet"
 
 
 def load_bridge(path=BRIDGE_PATH):
@@ -35,14 +36,15 @@ def validate_bridge(bridge=None, check_full_graph=True):
                 errors.append(f"{eid}: unknown multicode concept {concept!r}")
 
     allowed_methods = {"property_lookup", "geometry_clearance", "submittal_or_drawing"}
+    allowed_topics = set(topics) | {"fire_safety"}
     check_ids = set()
     for chk in bridge.get("checks", []):
         cid = chk["check_id"]
         if cid in check_ids:
             errors.append(f"Duplicate check_id: {cid}")
         check_ids.add(cid)
-        if chk["topic"] not in topics:
-            errors.append(f"{cid}: unknown topic {chk['topic']!r} (expected one of {sorted(topics)})")
+        if chk["topic"] not in allowed_topics:
+            errors.append(f"{cid}: unknown topic {chk['topic']!r} (expected one of {sorted(allowed_topics)})")
         if chk["source_id"] not in sources:
             errors.append(f"{cid}: unknown source_id {chk['source_id']!r}")
         if chk["ifc_entity_id"] not in entity_ids:
@@ -52,6 +54,8 @@ def validate_bridge(bridge=None, check_full_graph=True):
 
     matched_full = 0
     total_full_refs = 0
+    matched_scdf = 0
+    total_scdf_refs = 0
     if check_full_graph and FULL_ENTITIES.is_file():
         import pandas as pd
 
@@ -62,7 +66,17 @@ def validate_bridge(bridge=None, check_full_graph=True):
                 if title in full_titles:
                     matched_full += 1
                 else:
-                    warnings.append(f"{ent['id']}: GraphRAG full entity not found verbatim: {title!r}")
+                    warnings.append(f"{ent['id']}: GraphRAG BCA entity not found verbatim: {title!r}")
+
+        if SCDF_ENTITIES.is_file():
+            scdf_titles = set(pd.read_parquet(SCDF_ENTITIES, columns=["title"])["title"].astype(str))
+            for ent in bridge.get("ifc_entities", []):
+                for title in ent.get("graphrag_scdf_entities", []):
+                    total_scdf_refs += 1
+                    if title in scdf_titles:
+                        matched_scdf += 1
+                    else:
+                        warnings.append(f"{ent['id']}: GraphRAG SCDF entity not found verbatim: {title!r}")
 
     return {
         "ok": not errors,
@@ -70,6 +84,8 @@ def validate_bridge(bridge=None, check_full_graph=True):
         "checks": len(check_ids),
         "full_graph_matched": matched_full,
         "full_graph_refs": total_full_refs,
+        "scdf_graph_matched": matched_scdf,
+        "scdf_graph_refs": total_scdf_refs,
         "errors": errors,
         "warnings": warnings,
     }
@@ -195,7 +211,8 @@ def main():
             summary = (
                 f"{status}\n\n"
                 f"IFC+SG bridge: {result['entities']} IFC entities, {result['checks']} regulatory checks.\n"
-                f"GraphRAG full-code hub matches: {result['full_graph_matched']} / {result['full_graph_refs']}.\n"
+                f"GraphRAG BCA full-code hub matches: {result['full_graph_matched']} / {result['full_graph_refs']}.\n"
+                f"GraphRAG SCDF 540-page hub matches: {result['scdf_graph_matched']} / {result['scdf_graph_refs']}.\n"
             )
             if result["warnings"]:
                 summary += "\nWarnings:\n" + "\n".join(f"- {w}" for w in result["warnings"]) + "\n"

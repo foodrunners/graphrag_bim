@@ -145,7 +145,7 @@ def export_graphrag_scope(scope, prefix, filter_term=None, min_degree=0, folder_
     return dest, len(entities), sum(len(v) for v in outgoing.values()), title_to_note
 
 
-def export_ifcsg_bridge(full_title_map=None, multicode_title_map=None):
+def export_ifcsg_bridge(full_title_map=None, multicode_title_map=None, scdf_title_map=None):
     bridge = load_bridge()
     dest = OBSIDIAN_ROOT / "ifcsg"
     if dest.exists():
@@ -154,6 +154,7 @@ def export_ifcsg_bridge(full_title_map=None, multicode_title_map=None):
 
     full_title_map = full_title_map or {}
     multicode_title_map = multicode_title_map or {}
+    scdf_title_map = scdf_title_map or {}
     used_names = set()
     entity_note = {}
     check_note = {}
@@ -187,12 +188,20 @@ def export_ifcsg_bridge(full_title_map=None, multicode_title_map=None):
         for ps in ent.get("property_sets", []):
             lines.append(f"- **`{ps['pset']}`** (`{ps['schema_status']}`): {', '.join(ps['properties'])} — {ps['purpose']}")
 
-        lines.extend(["", "## Linked GraphRAG Regulatory Hub Nodes", ""])
+        lines.extend(["", "## Linked BCA Accessibility Hub Nodes (116p)", ""])
         for hub in ent.get("graphrag_full_entities", []):
             if hub in full_title_map:
                 lines.append(f"- [[{full_title_map[hub]}|{hub}]] (BCA 116-page index)")
             else:
                 lines.append(f"- `{hub}`")
+
+        if ent.get("graphrag_scdf_entities"):
+            lines.extend(["", "## Linked SCDF Fire Code Hub Nodes (540p)", ""])
+            for hub in ent.get("graphrag_scdf_entities", []):
+                if hub in scdf_title_map:
+                    lines.append(f"- [[{scdf_title_map[hub]}|{hub}]] (SCDF 540-page index)")
+                else:
+                    lines.append(f"- `{hub}`")
 
         lines.extend(["", "## Linked Compliance Checks", ""])
         for chk in linked_checks:
@@ -227,7 +236,6 @@ def export_ifcsg_bridge(full_title_map=None, multicode_title_map=None):
             f"- **Open evidence fallback:** {chk['open_evidence_if_unmodeled']}",
             "",
         ]
-        # Link matching clause nodes in multicode if present
         matched_mc = [
             (t, n) for t, n in multicode_title_map.items()
             if any(part.strip().casefold() in t.casefold() for part in chk["code_ref"].split("/"))
@@ -241,12 +249,13 @@ def export_ifcsg_bridge(full_title_map=None, multicode_title_map=None):
         (dest / f"{name}.md").write_text("\n".join(lines), encoding="utf-8")
 
     idx = [
-        "# Obsidian Graph Export — IFC+SG Semantic Bridge",
+        "# Obsidian Graph Export — IFC+SG Semantic Bridge (BCA + SCDF)",
         "",
         f"- **IFC+SG Entities:** {len(entity_note)}",
         f"- **Compliance Checks:** {len(check_note)}",
-        "- **Obsidian Graph View filter (IFC+SG + Multicode):** `path:03_graphrag/obsidian_graph/ifcsg OR path:03_graphrag/obsidian_graph/multicode`",
-        "- **Obsidian Graph View filter (IFC+SG + Full Washroom Slice):** `path:03_graphrag/obsidian_graph/ifcsg OR path:03_graphrag/obsidian_graph/full_washroom`",
+        "- **Obsidian Graph View (IFC+SG + SCDF Hubs):** `path:03_graphrag/obsidian_graph/ifcsg OR path:03_graphrag/obsidian_graph/scdf_hubs_deg8`",
+        "- **Obsidian Graph View (IFC+SG + Multicode):** `path:03_graphrag/obsidian_graph/ifcsg OR path:03_graphrag/obsidian_graph/multicode`",
+        "- **Obsidian Graph View (IFC+SG + BCA Washrooms):** `path:03_graphrag/obsidian_graph/ifcsg OR path:03_graphrag/obsidian_graph/full_washroom`",
         "",
         "## IFC+SG Entities",
         "",
@@ -255,6 +264,35 @@ def export_ifcsg_bridge(full_title_map=None, multicode_title_map=None):
         idx.append(f"- [[{note}|{eid}]]")
     (dest / "_INDEX.md").write_text("\n".join(idx) + "\n", encoding="utf-8")
     return dest, len(entity_note) + len(check_note)
+
+
+def _append_cross_links(ifcsg_dest, ifcsg_map, target_map, csv_path, section_title, min_score=0.73, max_per_node=8):
+    """Append top vector-matched BCA or SCDF wikilinks directly into exported ifcsg_full notes."""
+    if not csv_path.is_file() or not target_map:
+        return 0
+    df = pd.read_csv(csv_path)
+    col = "code_entity" if "code_entity" in df.columns else "bca_entity"
+    df = df[(df["rank"] == 1) & (df["cosine_score"] >= min_score)].copy()
+    by_ifc = defaultdict(list)
+    for r in df.itertuples(index=False):
+        code_title = str(getattr(r, col))
+        ifc_title = str(r.ifcsg_title)
+        if ifc_title in ifcsg_map and code_title in target_map:
+            by_ifc[ifc_title].append((float(r.cosine_score), code_title, target_map[code_title]))
+
+    added = 0
+    for ifc_title, matches in by_ifc.items():
+        matches.sort(key=lambda item: (-item[0], item[1]))
+        note_path = ifcsg_dest / f"{ifcsg_map[ifc_title]}.md"
+        if not note_path.is_file():
+            continue
+        lines = ["", f"## {section_title}", ""]
+        for score, code_title, target_note in matches[:max_per_node]:
+            lines.append(f"- [[{target_note}|{code_title}]] (vector match `{score:.3f}`)")
+            added += 1
+        with note_path.open("a", encoding="utf-8") as handle:
+            handle.write("\n".join(lines) + "\n")
+    return added
 
 
 def main():
@@ -271,6 +309,7 @@ def main():
 
     mc_map = {}
     full_map = {}
+    scdf_map = {}
 
     if args.scope in {"multicode", "all"}:
         dest, n, e, mc_map = export_graphrag_scope("multicode", "MC", min_degree=args.min_degree)
@@ -284,25 +323,27 @@ def main():
             dest, n, e, full_map = export_graphrag_scope("full", "BCA", min_degree=args.min_degree)
             print(f"Exported full -> {dest} ({n} notes, {e} links)")
 
-    if args.scope == "scdf" and (GRAPHRAG_DIR / "scdf" / "output" / "entities.parquet").is_file():
+    if args.scope in {"scdf", "all"} and (GRAPHRAG_DIR / "scdf" / "output" / "entities.parquet").is_file():
         if args.filter:
-            dest, n, e, _ = export_graphrag_scope("scdf", "SCDF", filter_term=args.filter, min_degree=args.min_degree)
+            dest, n, e, scdf_map = export_graphrag_scope("scdf", "SCDF", filter_term=args.filter, min_degree=args.min_degree)
             print(f"Exported scdf ({args.filter}) -> {dest} ({n} notes, {e} links)")
         else:
             deg = args.min_degree if args.min_degree > 0 else 8
-            dest, n, e, _ = export_graphrag_scope("scdf", "SCDF", min_degree=deg, folder_name=f"scdf_hubs_deg{deg}")
+            dest, n, e, scdf_map = export_graphrag_scope("scdf", "SCDF", min_degree=deg, folder_name=f"scdf_hubs_deg{deg}")
             print(f"Exported scdf (min_degree={deg}) -> {dest} ({n} notes, {e} links)")
 
     if args.scope in {"ifcsg_graph", "all"} and (GRAPHRAG_DIR / "ifcsg" / "output" / "entities.parquet").is_file():
         if args.filter:
-            dest, n, e, _ = export_graphrag_scope("ifcsg", "IFCSG-G", filter_term=args.filter, min_degree=args.min_degree, folder_name="ifcsg_full")
-            print(f"Exported ifcsg_graph ({args.filter}) -> {dest} ({n} notes, {e} links)")
+            ifc_dest, n, e, ifc_map = export_graphrag_scope("ifcsg", "IFCSG-G", filter_term=args.filter, min_degree=args.min_degree, folder_name="ifcsg_full")
+            print(f"Exported ifcsg_graph ({args.filter}) -> {ifc_dest} ({n} notes, {e} links)")
         else:
-            dest, n, e, _ = export_graphrag_scope("ifcsg", "IFCSG-G", min_degree=args.min_degree, folder_name="ifcsg_full")
-            print(f"Exported ifcsg_graph -> {dest} ({n} notes, {e} links)")
+            ifc_dest, n, e, ifc_map = export_graphrag_scope("ifcsg", "IFCSG-G", min_degree=args.min_degree, folder_name="ifcsg_full")
+            bca_links = _append_cross_links(ifc_dest, ifc_map, full_map, ROOT / "05_ifcsg/output/bca_to_ifcsg_matches.csv", "Linked BCA Accessibility Nodes (Vector Match)")
+            scdf_links = _append_cross_links(ifc_dest, ifc_map, scdf_map, ROOT / "05_ifcsg/output/scdf_to_ifcsg_matches.csv", "Linked SCDF Fire Code Nodes (Vector Match)")
+            print(f"Exported ifcsg_graph -> {ifc_dest} ({n} notes, {e} links + {bca_links} BCA cross-links + {scdf_links} SCDF cross-links)")
 
     if args.scope in {"ifcsg", "all"}:
-        dest, n = export_ifcsg_bridge(full_title_map=full_map, multicode_title_map=mc_map)
+        dest, n = export_ifcsg_bridge(full_title_map=full_map, multicode_title_map=mc_map, scdf_title_map=scdf_map)
         print(f"Exported ifcsg bridge -> {dest} ({n} notes)")
 
 

@@ -1,15 +1,15 @@
 {
-  "schema_version": "0.2.0",
+  "schema_version": "0.3.0",
   "standard": "IFC4 + Singapore CORENET X IFC+SG (CoP 3.1, 2026-09-25)",
   "source_mapping": "01_source/ifcsg_edition.json",
-  "notes": "Semantic bridge connecting BCA Accessibility Code 2025 v1.1, SCDF Fire Code 2023, and BCA Approved Document V7.08 provisions to official CORENET X IFC+SG entities, *USERDEFINED subtypes, SGPset_* property sets, and deterministic checks. All SGPset_* properties below have been verified directly against industry-mapping-09-2026.xlsx (SHA-256 d0346db4ada59d9fef5858794102e1404b8139c368f9efcc87547b913f1e0309).",
+  "notes": "Multi-agency semantic bridge connecting BCA Accessibility Code 2025 v1.1, SCDF Fire Code 2023 (7 Jul 2026), and BCA Approved Document V7.08 provisions to verified CORENET X IFC+SG entities, *USERDEFINED subtypes, and SGPset_* properties.",
   "ifc_entities": [
     {
       "id": "ifcsg:IfcSpace",
       "ifc_class": "IfcSpace",
       "predefined_type": "SPACE | *ACCESSIBLEROUTE | *AREA_GFA",
       "spatial_container": "IfcBuildingStorey",
-      "label": "IFC+SG Accessible Space & Accessible Route",
+      "label": "IFC+SG Accessible Space, Lobbies & Escape Corridors (BCA & SCDF)",
       "multicode_concepts": ["space:accessible-washroom"],
       "graphrag_full_entities": [
         "ACCESSIBLE INDIVIDUAL WASHROOM",
@@ -17,6 +17,14 @@
         "ACCESSIBLE INDIVIDUAL SHOWER FACILITY",
         "ACCESSIBLE WATER CLOSET CUBICLE",
         "CLEAR FLOOR SPACE"
+      ],
+      "graphrag_scdf_entities": [
+        "SMOKE-STOP LOBBY",
+        "FIRE LIFT LOBBY",
+        "AREA OF REFUGE",
+        "SMOKE-FREE LOBBY",
+        "EXTERNAL CORRIDOR",
+        "INTERNAL CORRIDOR"
       ],
       "property_sets": [
         {
@@ -32,18 +40,19 @@
             "OccupancyType",
             "PurposeGroup",
             "FireDetectionAndSuppressionSystem",
+            "FireEmergencyVentilationMode",
             "FireExit",
             "Status",
             "AmendmentStatus"
           ],
           "schema_status": "verified_corenet_x_2026_09",
-          "purpose": "Official CORENET X multi-agency space classification flags (LWC, BFA, Ambulant, OccupancyType, Fire alarm protection)."
+          "purpose": "Official CORENET X multi-agency space classification flags (BCA accessibility + SCDF fire protection/ventilation/exits)."
         },
         {
           "pset": "SGPset_SpaceDimension",
           "properties": ["Width", "Area", "Height"],
           "schema_status": "verified_corenet_x_2026_09",
-          "purpose": "Accessible route width (BCA) and space area/height (note: unobstructed clear width x depth still requires 3D geometry verification)."
+          "purpose": "Accessible route width (BCA) and space area/height."
         }
       ]
     },
@@ -52,13 +61,14 @@
       "ifc_class": "IfcSanitaryTerminal",
       "predefined_type": "*WATERCLOSET | WASHHANDBASIN | SHOWER | URINAL | BIDET | BATH",
       "spatial_container": "IfcSpace",
-      "label": "IFC+SG Sanitary Appliances (WC, Wash Basin, Shower, Urinal, Bidet)",
+      "label": "IFC+SG Sanitary Appliances (BCA, PUB, NEA)",
       "multicode_concepts": ["space:accessible-washroom"],
       "graphrag_full_entities": [
         "WATER CLOSET",
         "WASH BASIN",
         "SHOWER SEAT"
       ],
+      "graphrag_scdf_entities": [],
       "property_sets": [
         {
           "pset": "SGPset_SanitaryTerminal",
@@ -76,13 +86,13 @@
             "AmendmentStatus"
           ],
           "schema_status": "verified_corenet_x_2026_09",
-          "purpose": "Cross-agency sanitary appliance flags spanning BCA (BFA, Ambulant, ChildrenFriendly), PUB (WELS), and NEA (PanMounting, ToiletPanType)."
+          "purpose": "Cross-agency sanitary appliance flags spanning BCA, PUB (WELS), and NEA."
         },
         {
           "pset": "Pset_SanitaryTerminalTypeWashHandBasin",
           "properties": ["Mounting"],
           "schema_status": "verified_corenet_x_2026_09",
-          "purpose": "Wash basin mounting type (NEA); exact rim AFFL and transfer clearance come from 3D placement geometry."
+          "purpose": "Wash basin mounting type (NEA)."
         }
       ]
     },
@@ -91,17 +101,23 @@
       "ifc_class": "IfcDoor",
       "predefined_type": "DOOR | GATE | *BLASTDOOR | *ROLLERSHUTTER",
       "spatial_container": "IfcBuildingStorey",
-      "label": "IFC+SG Door (BCA, SCDF, NEA)",
+      "label": "IFC+SG Door — Accessible & Fire Exit Doors (BCA, SCDF, NEA)",
       "multicode_concepts": ["space:accessible-washroom"],
       "graphrag_full_entities": [
         "DOORWAY"
+      ],
+      "graphrag_scdf_entities": [
+        "EXIT DOOR",
+        "FIRE DOOR",
+        "EXIT ACCESS DOOR",
+        "FIRE-RATED DOOR"
       ],
       "property_sets": [
         {
           "pset": "SGPset_DoorDimension",
           "properties": ["ClearWidth", "ClearHeight"],
           "schema_status": "verified_corenet_x_2026_09",
-          "purpose": "Official CORENET X clear door opening width and height (also check native IfcDoor.OverallWidth)."
+          "purpose": "Official CORENET X clear door opening width and height (SCDF Clause 2.2.7a >= 850 mm & BCA accessibility)."
         },
         {
           "pset": "SGPset_Door",
@@ -113,13 +129,13 @@
             "AmendmentStatus"
           ],
           "schema_status": "verified_corenet_x_2026_09",
-          "purpose": "Singapore multi-agency door flags across BCA (PowerOperated), SCDF (FireAccessOpening, OneWayLockingDevice), and NEA (MainEntrance)."
+          "purpose": "Multi-agency door flags across BCA, SCDF, and NEA."
         },
         {
           "pset": "Pset_DoorCommon",
           "properties": ["FireExit", "FireRating", "IsExternal", "SelfClosing"],
           "schema_status": "verified_corenet_x_2026_09",
-          "purpose": "Standard IFC4 fire exit, fire rating, external, and self-closing properties used by SCDF and BCA."
+          "purpose": "Fire exit, fire rating, external, and self-closing flags used by SCDF and BCA."
         }
       ]
     },
@@ -128,7 +144,7 @@
       "ifc_class": "IfcAlarm",
       "predefined_type": "*VISUALALARM | *SOUNDER | *MANUALALARMCALLPOINT | *FIREALARMPANEL | *HOMEFIREALARMDEVICE",
       "spatial_container": "IfcSpace",
-      "label": "IFC+SG Fire Alarm & Visual Warning Devices (SCDF) + Assistance Call Reference",
+      "label": "IFC+SG Fire Alarm & Visual Warning Devices (SCDF) + BCA Assistance Alarm",
       "multicode_concepts": [
         "system:assistance-alarm",
         "system:fire-alarm",
@@ -138,12 +154,19 @@
         "EMERGENCY PUSH-BUTTON",
         "EMERGENCY ASSISTANCE ALARM SYSTEM"
       ],
+      "graphrag_scdf_entities": [
+        "AUTOMATIC FIRE ALARM SYSTEM",
+        "FIRE ALARM SYSTEM",
+        "FIRE ALARM PANEL",
+        "VISUAL ALARM",
+        "ELECTRICAL FIRE ALARM SYSTEM"
+      ],
       "property_sets": [
         {
           "pset": "SGPset_Alarm",
           "properties": ["Status", "AmendmentStatus"],
           "schema_status": "verified_corenet_x_2026_09",
-          "purpose": "Official SCDF IfcAlarm subtype mapping (*VISUALALARM for visual fire warnings in washrooms; note BCA emergency assistance push-buttons are not yet a separate subtype in CX Pilot Mapping 09-2026 and require ELV submittal/placement verification)."
+          "purpose": "Official SCDF IfcAlarm subtype mapping (*VISUALALARM for visual fire warnings in toilets/lobbies/car parks)."
         }
       ]
     },
@@ -152,12 +175,15 @@
       "ifc_class": "IfcRamp",
       "predefined_type": "STRAIGHT_RUN_RAMP | *FLAREDKERBRAMP | *CURVEDRAMP",
       "spatial_container": "IfcBuildingStorey",
-      "label": "IFC+SG Ramp (BCA & LTA)",
+      "label": "IFC+SG Ramp & Exit Ramp (BCA, SCDF, LTA)",
       "multicode_concepts": ["space:escape-route-ramp"],
       "graphrag_full_entities": [
         "RAMP",
         "KERB RAMP",
         "ACCESSIBLE ROUTE"
+      ],
+      "graphrag_scdf_entities": [
+        "EXIT RAMP"
       ],
       "property_sets": [
         {
@@ -179,7 +205,7 @@
             "AmendmentStatus"
           ],
           "schema_status": "verified_corenet_x_2026_09",
-          "purpose": "BCA accessibility flag (BarrierFreeAccessibility) plus LTA vehicular/accessway flags."
+          "purpose": "BCA accessibility flag plus LTA vehicular/accessway flags."
         }
       ]
     },
@@ -194,6 +220,7 @@
         "HANDRAIL",
         "GRAB BARS"
       ],
+      "graphrag_scdf_entities": [],
       "property_sets": [
         {
           "pset": "SGPset_RailingDimension",
@@ -208,6 +235,122 @@
           "purpose": "Official BCA safety barrier classification and laminated glass indicator."
         }
       ]
+    },
+    {
+      "id": "ifcsg:IfcStair",
+      "ifc_class": "IfcStair",
+      "predefined_type": "STRAIGHT_RUN_STAIR | HALF_TURN_STAIR | QUARTER_TURN_STAIR | DOUBLE_RETURN_STAIR",
+      "spatial_container": "IfcBuildingStorey",
+      "label": "IFC+SG Exit Staircase (SCDF & BCA)",
+      "multicode_concepts": [],
+      "graphrag_full_entities": [],
+      "graphrag_scdf_entities": [
+        "EXIT STAIRCASE",
+        "EXIT STAIRCASES",
+        "INTERNAL EXIT STAIRCASE",
+        "EXTERNAL EXIT STAIRCASE",
+        "PROTECTED STAIRCASE"
+      ],
+      "property_sets": [
+        {
+          "pset": "Pset_StairCommon",
+          "properties": ["FireExit"],
+          "schema_status": "verified_corenet_x_2026_09",
+          "purpose": "Identifies SCDF designated exit staircases."
+        },
+        {
+          "pset": "Pset_StairFlightCommon",
+          "properties": ["TreadLength"],
+          "schema_status": "verified_corenet_x_2026_09",
+          "purpose": "Stair flight tread length on decomposed IfcStairFlight elements."
+        }
+      ]
+    },
+    {
+      "id": "ifcsg:IfcWall",
+      "ifc_class": "IfcWall",
+      "predefined_type": "STANDARD | PARAPET | *BOUNDARYWALL | *RETAININGWALL",
+      "spatial_container": "IfcBuildingStorey",
+      "label": "IFC+SG Compartment, Separating & External Walls (SCDF & BCA)",
+      "multicode_concepts": [],
+      "graphrag_full_entities": [
+        "WALL"
+      ],
+      "graphrag_scdf_entities": [
+        "COMPARTMENT WALL",
+        "EXTERNAL WALL",
+        "SEPARATING WALL",
+        "PROTECTED SHAFT"
+      ],
+      "property_sets": [
+        {
+          "pset": "Pset_WallCommon",
+          "properties": ["IsExternal", "FireRating", "Compartmentation"],
+          "schema_status": "verified_corenet_x_2026_09",
+          "purpose": "External wall flag (CORENET X) and IFC4 fire compartmentation/rating metadata."
+        },
+        {
+          "pset": "SGPset_WallDimension",
+          "properties": ["Thickness"],
+          "schema_status": "verified_corenet_x_2026_09",
+          "purpose": "Wall thickness dimension."
+        },
+        {
+          "pset": "SGPset_Wall",
+          "properties": ["LoadBearing", "ShelterUsage", "Status", "AmendmentStatus"],
+          "schema_status": "verified_corenet_x_2026_09",
+          "purpose": "BCA structural and shelter wall properties."
+        }
+      ]
+    },
+    {
+      "id": "ifcsg:IfcDamper",
+      "ifc_class": "IfcDamper",
+      "predefined_type": "FIREDAMPER | SMOKEDAMPER | FIRESMOKEDAMPER",
+      "spatial_container": "IfcBuildingStorey",
+      "label": "IFC+SG Fire & Smoke Dampers (SCDF)",
+      "multicode_concepts": [],
+      "graphrag_full_entities": [],
+      "graphrag_scdf_entities": [
+        "FIRE DAMPER"
+      ],
+      "property_sets": [
+        {
+          "pset": "SGPset_Damper",
+          "properties": ["FireRating", "Status", "AmendmentStatus"],
+          "schema_status": "verified_corenet_x_2026_09",
+          "purpose": "Official SCDF fire rating on fire/smoke dampers penetrating compartment boundaries."
+        }
+      ]
+    },
+    {
+      "id": "ifcsg:IfcTransportElement",
+      "ifc_class": "IfcTransportElement",
+      "predefined_type": "*LIFT",
+      "spatial_container": "IfcBuildingStorey",
+      "label": "IFC+SG Passenger & Fire Fighting Lifts (SCDF & BCA)",
+      "multicode_concepts": [],
+      "graphrag_full_entities": [
+        "PASSENGER LIFT",
+        "PLATFORM LIFT"
+      ],
+      "graphrag_scdf_entities": [
+        "FIRE LIFT"
+      ],
+      "property_sets": [
+        {
+          "pset": "SGPset_TransportElement",
+          "properties": ["FireFightingLift", "LiftType"],
+          "schema_status": "verified_corenet_x_2026_09",
+          "purpose": "Official SCDF fire fighting lift classification and lift type."
+        },
+        {
+          "pset": "SGPset_TransportElementDimension",
+          "properties": ["ClearWidth", "ClearDepth", "ClearHeight"],
+          "schema_status": "verified_corenet_x_2026_09",
+          "purpose": "Official CORENET X lift car internal clear dimensions (used by both SCDF Fire Lift and BCA Accessible Lift checks)."
+        }
+      ]
     }
   ],
   "checks": [
@@ -219,7 +362,7 @@
       "code_ref": "5.2.1(b)",
       "source_id": "coa25v1.1",
       "pdf_page": 63,
-      "applies_when": "Where LWC is triggered (e.g., Clause 5.1.3(d) place of worship at every level with toilets; see Table 1 p. 20; check SGPset_Space.LargerAccessible = TRUE).",
+      "applies_when": "Where LWC is triggered (e.g., Clause 5.1.3(d) place of worship at every level with toilets; check SGPset_Space.LargerAccessible = TRUE).",
       "ifc_entity_id": "ifcsg:IfcSpace",
       "evaluation_method": "geometry_clearance",
       "measurement_basis": "Filter IfcSpace where SGPset_Space.LargerAccessible = TRUE, then measure minimum clear internal width x depth between finished wall faces unobstructed by door swing (verify against Figure 44, p. 65).",
@@ -334,13 +477,13 @@
       "topic": "washroom",
       "title": "Visual fire warning device inside toilet / full-height cubicle",
       "authority": "SCDF",
-      "code_ref": "6.3.5c.(1)(a)(i)",
+      "code_ref": "6.3.5c.(1)(a)(i) / 6.3.5c.(1)(b)",
       "source_id": "fc23@2026-11-20",
-      "pdf_page": null,
-      "applies_when": "Building protected by a fire alarm system (check SGPset_Space.FireDetectionAndSuppressionSystem), in locations where a person with hearing impairment can be isolated (toilets and inside full-height partitioned cubicles).",
+      "pdf_page": 307,
+      "applies_when": "Building protected by a fire alarm system (check SGPset_Space.FireDetectionAndSuppressionSystem), in isolated spaces including toilets, full-height cubicles, car parks, and lift lobbies.",
       "ifc_entity_id": "ifcsg:IfcAlarm",
       "evaluation_method": "property_lookup",
-      "measurement_basis": "Verify presence of IfcAlarm with ObjectType/PredefinedType *VISUALALARM contained inside the washroom IfcSpace (distinct from BCA assistance alarm).",
+      "measurement_basis": "Verify presence of IfcAlarm with SubType *VISUALALARM contained inside the washroom IfcSpace (distinct from BCA assistance alarm).",
       "unit": "count",
       "threshold": {"min_visual_fire_warning_devices": 1},
       "open_evidence_if_unmodeled": "Fire alarm building protection trigger confirmation, electrical fire alarm layout, and cubicle partition height."
@@ -379,6 +522,70 @@
       "unit": "mm",
       "threshold": {"verify_against_clause": "BCA 2025 v1.1 Clauses 4.4 & 5.8.1"},
       "open_evidence_if_unmodeled": "Door schedule linked to IfcDoor GlobalId and clear opening leaf detail."
+    },
+    {
+      "check_id": "CHK-FIRE-01",
+      "topic": "fire_safety",
+      "title": "Exit door minimum clear width and fire-rated door attributes on escape routes",
+      "authority": "SCDF",
+      "code_ref": "2.2.7 / 2.2.7a & Table 2.2A",
+      "source_id": "fc23@2026-11-20",
+      "pdf_page": 132,
+      "applies_when": "Exit doors and exit access doors along means of escape (Pset_DoorCommon.FireExit = TRUE).",
+      "ifc_entity_id": "ifcsg:IfcDoor",
+      "evaluation_method": "property_lookup",
+      "measurement_basis": "Check SGPset_DoorDimension.ClearWidth >= 850 mm (and Table 2.2A for occupant load), plus Pset_DoorCommon.FireRating, SelfClosing, and SGPset_Door.OneWayLockingDevice.",
+      "unit": "mm",
+      "threshold": {"min_clear_width_mm": 850, "table_reference": "SCDF Fire Code 2023 Table 2.2A"},
+      "open_evidence_if_unmodeled": "Fire safety door schedule linked to IfcDoor GlobalId and escape capacity calculations."
+    },
+    {
+      "check_id": "CHK-FIRE-02",
+      "topic": "fire_safety",
+      "title": "Exit staircase designation, enclosure, and flight tread width",
+      "authority": "SCDF",
+      "code_ref": "2.2 / 2.3.3",
+      "source_id": "fc23@2026-11-20",
+      "pdf_page": 132,
+      "applies_when": "Protected internal/external exit staircases serving escape routes.",
+      "ifc_entity_id": "ifcsg:IfcStair",
+      "evaluation_method": "property_lookup",
+      "measurement_basis": "Verify Pset_StairCommon.FireExit = TRUE, Pset_StairFlightCommon.TreadLength, and staircase clear width against SCDF Table 2.2A.",
+      "unit": "mm",
+      "threshold": {"fire_exit": true, "table_reference": "SCDF Fire Code 2023 Clause 2.3.3 & Table 2.2A"},
+      "open_evidence_if_unmodeled": "Staircase plans/sections with clear width between handrails and enclosure wall fire rating."
+    },
+    {
+      "check_id": "CHK-FIRE-03",
+      "topic": "fire_safety",
+      "title": "Fire / smoke damper fire rating at compartment wall penetrations",
+      "authority": "SCDF",
+      "code_ref": "3.9 / 7.1",
+      "source_id": "fc23@2026-11-20",
+      "pdf_page": 200,
+      "applies_when": "Ducts penetrating fire-rated compartment walls, compartment floors, or protected shafts.",
+      "ifc_entity_id": "ifcsg:IfcDamper",
+      "evaluation_method": "property_lookup",
+      "measurement_basis": "Verify IfcDamper (FIREDAMPER / FIRESMOKEDAMPER) has SGPset_Damper.FireRating matching the penetrated compartment barrier.",
+      "unit": "hours",
+      "threshold": {"match_compartment_fire_rating": true},
+      "open_evidence_if_unmodeled": "M&E ductwork penetration schedule and fire compartmentation drawings."
+    },
+    {
+      "check_id": "CHK-FIRE-04",
+      "topic": "fire_safety",
+      "title": "Fire fighting lift designation and internal car clear dimensions",
+      "authority": "SCDF / BCA",
+      "code_ref": "SCDF 6.6 / BCA 4.9",
+      "source_id": "fc23@2026-11-20",
+      "pdf_page": 340,
+      "applies_when": "Buildings requiring a fire lift under SCDF Fire Code Chapter 6 and/or accessible passenger lift under BCA Code.",
+      "ifc_entity_id": "ifcsg:IfcTransportElement",
+      "evaluation_method": "property_lookup",
+      "measurement_basis": "Check SGPset_TransportElement.FireFightingLift, LiftType, and SGPset_TransportElementDimension.ClearWidth / ClearDepth / ClearHeight.",
+      "unit": "mm",
+      "threshold": {"verify_fire_lift_and_car_dimensions": true},
+      "open_evidence_if_unmodeled": "Lift specification schedule, lift shaft plans, and fire lift lobby layout."
     }
   ]
 }

@@ -13,8 +13,16 @@ class IfcSgBridgeTests(unittest.TestCase):
     def test_bridge_validates_against_multicode_sources_and_concepts(self):
         result = validate_bridge(check_full_graph=False)
         self.assertTrue(result["ok"], msg=f"Bridge validation errors: {result['errors']}")
-        self.assertGreaterEqual(result["entities"], 6)
-        self.assertGreaterEqual(result["checks"], 8)
+        self.assertGreaterEqual(result["entities"], 10)
+        self.assertGreaterEqual(result["checks"], 13)
+
+    def test_fire_safety_checklist_links_scdf_to_ifcsg(self):
+        text = format_checklist("fire_safety")
+        self.assertIn("CHK-FIRE-01", text)
+        self.assertIn("IfcDoor", text)
+        self.assertIn("IfcStair", text)
+        self.assertIn("IfcDamper", text)
+        self.assertIn("IfcTransportElement", text)
 
     def test_washroom_checklist_separates_geometry_property_and_submittal_checks(self):
         text = format_checklist("washroom")
