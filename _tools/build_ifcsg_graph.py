@@ -407,20 +407,23 @@ def semantic_search(query, top_k=10, out_dir=OUT_DIR, model="gemini/gemini-embed
     return results
 
 
-def cross_match_bca_to_ifcsg(top_k=3, min_score=0.62):
-    """Match all BCA 116-page Space / Building Element / Component / System nodes to CORENET X IFC+SG via cosine similarity."""
+def cross_match_code_to_ifcsg(scope="full", out_name="bca_to_ifcsg_matches.csv", top_k=3, min_score=0.62):
+    """Match Code Space / Building Element / Component / System nodes to CORENET X IFC+SG via cosine similarity."""
     import lancedb
 
-    if not FULL_ENTITIES.is_file() or not FULL_LANCE.is_dir():
-        raise FileNotFoundError("Full BCA GraphRAG index not found at 03_graphrag/full/output.")
+    code_out = ROOT / "03_graphrag" / scope / "output"
+    ent_path = code_out / "entities.parquet"
+    lance_path = code_out / "lancedb"
+    if not ent_path.is_file() or not lance_path.is_dir():
+        raise FileNotFoundError(f"GraphRAG index not found at {code_out}.")
 
-    bca_ent = pd.read_parquet(FULL_ENTITIES)
+    code_ent = pd.read_parquet(ent_path)
     target_types = {"SPACE", "BUILDING ELEMENT", "COMPONENT", "SYSTEM"}
-    bca_sub = bca_ent[bca_ent["type"].isin(target_types)].copy()
+    code_sub = code_ent[code_ent["type"].isin(target_types)].copy()
 
-    bca_db = lancedb.connect(str(FULL_LANCE))
-    bca_vec_df = bca_db.open_table("entity_description").to_pandas()
-    bca_merged = bca_sub.merge(bca_vec_df[["id", "vector"]], on="id", how="inner")
+    code_db = lancedb.connect(str(lance_path))
+    code_vec_df = code_db.open_table("entity_description").to_pandas()
+    code_merged = code_sub.merge(code_vec_df[["id", "vector"]], on="id", how="inner")
 
     ifc_db = lancedb.connect(str(OUT_DIR / "lancedb"))
     ifc_vec_df = ifc_db.open_table("entity_description").to_pandas()
@@ -429,35 +432,44 @@ def cross_match_bca_to_ifcsg(top_k=3, min_score=0.62):
     ifc_vec_df["type"] = [a["type"] for a in ifc_attrs]
     ifc_targets = ifc_vec_df[ifc_vec_df["type"].isin({"COMPONENT", "IFC_ENTITY", "PROPERTY_SET"})].reset_index(drop=True)
 
-    bca_mat = np.stack(bca_merged["vector"].values).astype(np.float32)
-    bca_mat /= np.clip(np.linalg.norm(bca_mat, axis=1, keepdims=True), 1e-12, None)
+    code_mat = np.stack(code_merged["vector"].values).astype(np.float32)
+    code_mat /= np.clip(np.linalg.norm(code_mat, axis=1, keepdims=True), 1e-12, None)
     ifc_mat = np.stack(ifc_targets["vector"].values).astype(np.float32)
     ifc_mat /= np.clip(np.linalg.norm(ifc_mat, axis=1, keepdims=True), 1e-12, None)
 
-    sim = bca_mat @ ifc_mat.T
+    sim = code_mat @ ifc_mat.T
 
     rows = []
-    for i, bca_row in enumerate(bca_merged.itertuples(index=False)):
+    for i, code_row in enumerate(code_merged.itertuples(index=False)):
         order = np.argsort(sim[i])[::-1][:top_k]
         for rank, j in enumerate(order, 1):
             score = float(sim[i, j])
             if score < min_score and rank > 1:
                 continue
             rows.append({
-                "bca_entity": bca_row.title,
-                "bca_type": bca_row.type,
-                "bca_degree": int(bca_row.degree),
+                "code_entity": code_row.title,
+                "bca_entity": code_row.title,
+                "code_type": code_row.type,
+                "code_degree": int(code_row.degree),
                 "rank": rank,
                 "cosine_score": round(score, 4),
                 "ifcsg_title": ifc_targets.iloc[j]["title"],
                 "ifcsg_type": ifc_targets.iloc[j]["type"],
             })
 
-    out_csv = ROOT / "05_ifcsg" / "output" / "bca_to_ifcsg_matches.csv"
+    out_csv = ROOT / "05_ifcsg" / "output" / out_name
     out_csv.parent.mkdir(parents=True, exist_ok=True)
-    df_out = pd.DataFrame(rows).sort_values(["bca_degree", "bca_entity", "rank"], ascending=[False, True, True])
+    df_out = pd.DataFrame(rows).sort_values(["code_degree", "code_entity", "rank"], ascending=[False, True, True])
     df_out.to_csv(out_csv, index=False, encoding="utf-8")
     return out_csv, df_out
+
+
+def cross_match_bca_to_ifcsg(top_k=3, min_score=0.62):
+    return cross_match_code_to_ifcsg("full", "bca_to_ifcsg_matches.csv", top_k=top_k, min_score=min_score)
+
+
+def cross_match_scdf_to_ifcsg(top_k=3, min_score=0.62):
+    return cross_match_code_to_ifcsg("scdf", "scdf_to_ifcsg_matches.csv", top_k=top_k, min_score=min_score)
 
 
 def offline_find(query, top_k=15, out_dir=OUT_DIR):
@@ -506,6 +518,7 @@ def main():
     p_search.add_argument("--top-k", type=int, default=8)
 
     sub.add_parser("match-bca", help="Cross-match BCA 116-page entities to IFC+SG using gemini-embedding-2 vectors.")
+    sub.add_parser("match-scdf", help="Cross-match SCDF 540-page entities to IFC+SG using gemini-embedding-2 vectors.")
 
     args = parser.parse_args()
 
@@ -539,6 +552,10 @@ def main():
     elif args.command == "match-bca":
         out_csv, df_out = cross_match_bca_to_ifcsg()
         print(f"Cross-matched BCA -> IFC+SG: {len(df_out)} links saved -> {out_csv}")
+        print(df_out[df_out["rank"] == 1].head(20).to_string(index=False))
+    elif args.command == "match-scdf":
+        out_csv, df_out = cross_match_scdf_to_ifcsg()
+        print(f"Cross-matched SCDF -> IFC+SG: {len(df_out)} links saved -> {out_csv}")
         print(df_out[df_out["rank"] == 1].head(20).to_string(index=False))
 
 

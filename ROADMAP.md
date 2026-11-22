@@ -11,6 +11,12 @@ Current branch: `feat/ifcsg-semantic-layer` (GitHub: `https://github.com/foodrun
 - [x] **Portable index backup zip** (`sg_bim_graphrag_output_2026.zip`, `50.89 MB`, zero `.env`/cache) ready for Google Drive.
 - [x] **Local Search UI Workbench** (`_tools/ui_app.py` at `http://127.0.0.1:8000`) showing BCA Design Requirements + SCDF Fire Code (540p) alongside CORENET X IFC+SG Model Requirements.
 
+## Large-PDF Cost Settings (Remember for Future PDFs)
+- In `03_graphrag/<scope>/settings.yaml` (now automatic in `_tools/prepare.py` for `full` and `scdf`):
+  - `extract_graph.max_gleanings: 0` (single extraction pass per chunk instead of re-reading every chunk twice)
+  - `cluster_graph.max_cluster_size: 25` (fewer, larger topic clusters → ~60% fewer community reports; all entities/links stay 100% intact)
+  - `cluster_graph.use_lcc: false` (keeps all disconnected chapters searchable)
+
 ## Next Steps (In Order)
 1. **Test the updated local UI (`http://127.0.0.1:8000`)**
    - Search `toilet`, `ramp`, `door`, `lift`, `alarm`, `staircase`, `refuse` and check the new **SCDF Fire Code (540p)** tab alongside BCA COA 2025 v1.1 and CORENET X IFC+SG.

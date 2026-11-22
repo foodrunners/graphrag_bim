@@ -12,13 +12,17 @@ import pandas as pd
 
 from ifcsg_bridge import load_bridge
 from multicode import read_graph
+from watch_index import ascii_bar, read_index_status
 
 ROOT = Path(__file__).resolve().parents[1]
 FULL_OUT = ROOT / "03_graphrag" / "full" / "output"
+SCDF_OUT = ROOT / "03_graphrag" / "scdf" / "output"
 IFCSG_OUT = ROOT / "03_graphrag" / "ifcsg" / "output"
 SCDF_JSONL = ROOT / "02_evidence" / "output" / "scdf" / "records.jsonl"
 MATCHES_CSV = ROOT / "05_ifcsg" / "output" / "bca_to_ifcsg_matches.csv"
+SCDF_MATCHES_CSV = ROOT / "05_ifcsg" / "output" / "scdf_to_ifcsg_matches.csv"
 BCA_PDF_URL = "https://file.go.gov.sg/bca-coa2025.pdf"
+SCDF_PDF_URL = "https://www.scdf.gov.sg/docs/default-source/firecode-whole-document-with-annotations/firecode_full_latest_07jul2026.pdf?sfvrsn=a794fc8b_0"
 
 SYNONYMS = {
     "toilet": [
@@ -83,6 +87,7 @@ class ComplianceStore:
         self.bridge = load_bridge()
         self.mc_records, self.mc_labels, self.mc_topics, self.mc_links = read_graph()
         self.auto_matches = pd.read_csv(MATCHES_CSV) if MATCHES_CSV.is_file() else pd.DataFrame()
+        self.scdf_matches = pd.read_csv(SCDF_MATCHES_CSV) if SCDF_MATCHES_CSV.is_file() else pd.DataFrame()
         self.scdf_pages = []
         if SCDF_JSONL.is_file():
             self.scdf_pages = [
@@ -90,6 +95,24 @@ class ComplianceStore:
                 for line in SCDF_JSONL.read_text(encoding="utf-8").splitlines()
                 if line.strip()
             ]
+        self.scdf_entities = pd.read_parquet(SCDF_OUT / "entities.parquet") if (SCDF_OUT / "entities.parquet").is_file() else pd.DataFrame()
+        self.scdf_rels = pd.read_parquet(SCDF_OUT / "relationships.parquet") if (SCDF_OUT / "relationships.parquet").is_file() else pd.DataFrame()
+        self.scdf_unit_page = {}
+        self.scdf_neighbors = defaultdict(list)
+        if not self.scdf_entities.empty and (SCDF_OUT / "documents.parquet").is_file():
+            scdf_docs = pd.read_parquet(SCDF_OUT / "documents.parquet")
+            scdf_units = pd.read_parquet(SCDF_OUT / "text_units.parquet")
+            sdoc_page = {}
+            for r in scdf_docs.itertuples(index=False):
+                m = re.search(r"p\.\s*(\d+)", str(r.title))
+                sdoc_page[str(r.id)] = int(m.group(1)) if m else None
+            for r in scdf_units.itertuples(index=False):
+                self.scdf_unit_page[str(r.id)] = sdoc_page.get(str(r.document_id))
+            stype_map = dict(zip(self.scdf_entities["title"].astype(str), self.scdf_entities["type"].astype(str)))
+            for r in self.scdf_rels.itertuples(index=False):
+                src, tgt = str(r.source), str(r.target)
+                self.scdf_neighbors[src].append({"title": tgt, "type": stype_map.get(tgt, "")})
+                self.scdf_neighbors[tgt].append({"title": src, "type": stype_map.get(src, "")})
 
         # Pre-index text_unit_id -> PDF page number
         doc_page = {}
@@ -113,6 +136,7 @@ class ComplianceStore:
             "bca_entities": len(self.bca_entities),
             "bca_relationships": len(self.bca_rels),
             "scdf_pages": len(self.scdf_pages),
+            "scdf_entities": len(self.scdf_entities),
             "ifcsg_components": int((self.ifc_entities["type"] == "COMPONENT").sum()),
             "ifcsg_entities": int((self.ifc_entities["type"] == "IFC_ENTITY").sum()),
             "ifcsg_psets": int((self.ifc_entities["type"] == "PROPERTY_SET").sum()),
@@ -259,15 +283,56 @@ class ComplianceStore:
                 })
         scdf_hits.sort(key=lambda x: (-x["score"], x["page"] or 999))
 
+        # 4c. SCDF 540-page GraphRAG extracted clauses & dimensions
+        scdf_clauses = []
+        matched_scdf_titles = set()
+        if not self.scdf_entities.empty:
+            scdf_scored = []
+            for r in self.scdf_entities.itertuples(index=False):
+                title = str(r.title)
+                desc = str(r.description or "")
+                sc = self._score_blob(f"{title} {title} {desc}", raw_terms, expanded_terms)
+                if sc > 0:
+                    pages = sorted({
+                        self.scdf_unit_page[str(uid)]
+                        for uid in (r.text_unit_ids if r.text_unit_ids is not None else [])
+                        if str(uid) in self.scdf_unit_page and self.scdf_unit_page[str(uid)] is not None
+                    })
+                    scdf_scored.append({
+                        "title": title,
+                        "type": str(r.type),
+                        "degree": int(r.degree),
+                        "description": desc,
+                        "pages": pages,
+                        "pdf_url": f"{SCDF_PDF_URL}#page={pages[0]}" if pages else None,
+                        "score": round(sc + min(int(r.degree), 30) * 0.08, 2),
+                    })
+            scdf_scored.sort(key=lambda x: (-x["score"], -x["degree"], x["title"]))
+            matched_scdf_titles = {x["title"] for x in scdf_scored[:25]}
+            scdf_clauses = [x for x in scdf_scored if x["type"] in {"CLAUSE", "TABLE", "FIGURE", "MEASUREMENT"}][:20]
+            for item in scdf_clauses[:15]:
+                nbrs = self.scdf_neighbors.get(item["title"], [])
+                item["related_measurements"] = [n["title"] for n in nbrs if n["type"] == "MEASUREMENT"][:6]
+                item["related_objects"] = [n["title"] for n in nbrs if n["type"] in {"SPACE", "COMPONENT", "BUILDING ELEMENT", "SYSTEM"}][:5]
+
         # 5. IFC+SG Matched Components (direct text + pre-computed gemini-embedding-2 BCA->IFCSG matches)
         vector_boost = defaultdict(float)
         if not self.auto_matches.empty and matched_bca_titles:
+            col = "code_entity" if "code_entity" in self.auto_matches.columns else "bca_entity"
             sub = self.auto_matches[
-                (self.auto_matches["bca_entity"].isin(matched_bca_titles))
+                (self.auto_matches[col].isin(matched_bca_titles))
                 & (self.auto_matches["cosine_score"] >= 0.70)
                 & (self.auto_matches["rank"] == 1)
             ]
             for r in sub.itertuples(index=False):
+                vector_boost[str(r.ifcsg_title)] = max(vector_boost[str(r.ifcsg_title)], float(r.cosine_score))
+        if not self.scdf_matches.empty and matched_scdf_titles:
+            sub_s = self.scdf_matches[
+                (self.scdf_matches["code_entity"].isin(matched_scdf_titles))
+                & (self.scdf_matches["cosine_score"] >= 0.72)
+                & (self.scdf_matches["rank"] == 1)
+            ]
+            for r in sub_s.itertuples(index=False):
                 vector_boost[str(r.ifcsg_title)] = max(vector_boost[str(r.ifcsg_title)], float(r.cosine_score))
 
         comp_rows = []
@@ -369,6 +434,7 @@ class ComplianceStore:
                 "bca_measurements": bca_measurements,
                 "bca_objects": bca_objects,
                 "pdf_pages": page_hits[:12],
+                "scdf_clauses": scdf_clauses,
                 "scdf_pages": scdf_hits[:18],
             },
             "ifcsg": {
@@ -680,6 +746,7 @@ HTML_PAGE = r"""<!DOCTYPE html>
   <div id="expandedInfo">Expanded BIM terms: —</div>
   <div id="modeInfo">Offline instant search ($0) · Uses BCA 116-page GraphRAG + CORENET X IFC+SG Excel + pre-computed gemini-embedding-2 matches</div>
 </div>
+<div id="indexMonitor" style="padding:8px 24px;background:#020617;border-bottom:1px solid var(--border);font-family:ui-monospace,Consolas,monospace;font-size:12px;color:#34d399;white-space:pre-wrap;display:none;"></div>
 
 <main>
   <section class="column">
@@ -759,7 +826,7 @@ async function runSearch() {
   currentData = await res.json();
   const s = currentData.stats;
   document.getElementById("statsLine").textContent =
-    `BCA COA 2025 v1.1 (${s.bca_pages}p · ${s.bca_entities.toLocaleString()} entities)  |  SCDF Fire Code 2023 (${s.scdf_pages}p)  |  CORENET X IFC+SG Sep 2026 (${s.ifcsg_components} components · ${s.ifcsg_parameters.toLocaleString()} parameters)`;
+    `BCA COA 2025 v1.1 (${s.bca_pages}p · ${s.bca_entities.toLocaleString()} entities)  |  SCDF Fire Code 2023 (${s.scdf_pages}p · ${(s.scdf_entities||0).toLocaleString()} entities)  |  CORENET X IFC+SG Sep 2026 (${s.ifcsg_components} components · ${s.ifcsg_parameters.toLocaleString()} parameters)`;
   renderAgencyChips(s.agencies);
   document.getElementById("expandedInfo").textContent =
     `Matched terms (${currentData.expanded_terms.length}): ${currentData.expanded_terms.join(", ")}`;
@@ -863,18 +930,37 @@ function renderDesign() {
       </div>
     `).join("");
   } else if (designTab === "scdf") {
-    if (!d.scdf_pages.length) { el.innerHTML = `<div class="empty">No matching SCDF Fire Code 2023 pages found.</div>`; return; }
-    el.innerHTML = d.scdf_pages.map(p => `
-      <div class="card">
-        <div class="card-title">
-          <span class="badge b-red">SCDF p. ${p.page}</span>
-          <span class="badge b-slate">${esc(p.code_ref)}</span>
-          <span style="font-size:12px;color:var(--muted);">${esc(p.chapter)}</span>
-          ${p.pdf_url ? `<a style="margin-left:auto;font-size:12px;" href="${esc(p.pdf_url)}" target="_blank">Open SCDF PDF ↗</a>` : ""}
+    let html = "";
+    if (d.scdf_clauses && d.scdf_clauses.length) {
+      html += `<h3 style="font-size:13px;color:var(--muted);margin:0 0 8px;">Extracted SCDF Clauses & Dimensions (540p GraphRAG)</h3>`;
+      html += d.scdf_clauses.map(c => `
+        <div class="card">
+          <div class="card-title">
+            <span class="badge b-red">${esc(c.type)}</span>
+            <span>${esc(c.title)}</span>
+            ${c.pages.length ? `<a style="margin-left:auto;font-size:12px;" href="${esc(c.pdf_url)}" target="_blank">SCDF PDF p. ${c.pages.slice(0,5).join(", ")} ↗</a>` : ""}
+          </div>
+          <p>${esc(c.description)}</p>
+          ${(c.related_measurements && c.related_measurements.length) ? `<p><strong>Linked numbers:</strong> ${c.related_measurements.map(m => `<code>${esc(m)}</code>`).join(" ")}</p>` : ""}
+          ${(c.related_objects && c.related_objects.length) ? `<p><strong>Linked elements:</strong> ${c.related_objects.map(o => `<span class="badge b-green">${esc(o)}</span>`).join(" ")}</p>` : ""}
         </div>
-        <p style="font-family:ui-monospace,Consolas,monospace;font-size:11.5px;white-space:pre-wrap;">${esc(p.snippet)}</p>
-      </div>
-    `).join("");
+      `).join("");
+    }
+    if (d.scdf_pages && d.scdf_pages.length) {
+      html += `<h3 style="font-size:13px;color:var(--muted);margin:14px 0 8px;">Matching SCDF Fire Code PDF Pages</h3>`;
+      html += d.scdf_pages.slice(0, 10).map(p => `
+        <div class="card">
+          <div class="card-title">
+            <span class="badge b-red">SCDF p. ${p.page}</span>
+            <span class="badge b-slate">${esc(p.code_ref)}</span>
+            <span style="font-size:12px;color:var(--muted);">${esc(p.chapter)}</span>
+            ${p.pdf_url ? `<a style="margin-left:auto;font-size:12px;" href="${esc(p.pdf_url)}" target="_blank">Open SCDF PDF ↗</a>` : ""}
+          </div>
+          <p style="font-family:ui-monospace,Consolas,monospace;font-size:11.5px;white-space:pre-wrap;">${esc(p.snippet)}</p>
+        </div>
+      `).join("");
+    }
+    el.innerHTML = html || `<div class="empty">No matching SCDF Fire Code 2023 results found.</div>`;
   }
 }
 
@@ -976,7 +1062,22 @@ function copyMarkdown() {
   alert("Copied Markdown checklist to clipboard!");
 }
 
+async function pollIndexStatus() {
+  try {
+    const res = await fetch("/api/index-status?scope=scdf");
+    const st = await res.json();
+    const box = document.getElementById("indexMonitor");
+    if (st.state === "not_started") { box.style.display = "none"; return; }
+    box.style.display = "block";
+    box.style.color = st.state === "error" ? "#fb7185" : (st.state === "complete" ? "#38bdf8" : "#34d399");
+    box.textContent =
+      `[SCDF 540p INDEXER :: ${st.state.toUpperCase()}] ${st.ascii_bar}  |  ${st.current_stage} (${st.done.toLocaleString()} / ${st.total.toLocaleString()})  |  Cache: ${st.cache_files.toLocaleString()} files (${st.cache_mb} MB)  |  Last log: ${st.last_update}`;
+  } catch (_) {}
+}
+
 runSearch();
+pollIndexStatus();
+setInterval(pollIndexStatus, 3000);
 </script>
 </body>
 </html>
@@ -1007,6 +1108,13 @@ def make_handler(store):
                 return
             if parsed.path == "/api/health":
                 self._send(200, json.dumps({"ok": True, "stats": store.stats}), "application/json; charset=utf-8")
+                return
+            if parsed.path == "/api/index-status":
+                qs = parse_qs(parsed.query)
+                scope = qs.get("scope", ["scdf"])[0]
+                st = read_index_status(scope)
+                st["ascii_bar"] = ascii_bar(st["pct"], width=32)
+                self._send(200, json.dumps(st, ensure_ascii=False), "application/json; charset=utf-8")
                 return
             self._send(404, "Not found", "text/plain; charset=utf-8")
 

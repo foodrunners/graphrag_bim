@@ -261,7 +261,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--scope",
-        choices=["multicode", "full", "ifcsg", "ifcsg_graph", "all"],
+        choices=["multicode", "full", "scdf", "ifcsg", "ifcsg_graph", "all"],
         default="all",
         help="Which graph(s) to export to 03_graphrag/obsidian_graph/.",
     )
@@ -283,6 +283,15 @@ def main():
         else:
             dest, n, e, full_map = export_graphrag_scope("full", "BCA", min_degree=args.min_degree)
             print(f"Exported full -> {dest} ({n} notes, {e} links)")
+
+    if args.scope == "scdf" and (GRAPHRAG_DIR / "scdf" / "output" / "entities.parquet").is_file():
+        if args.filter:
+            dest, n, e, _ = export_graphrag_scope("scdf", "SCDF", filter_term=args.filter, min_degree=args.min_degree)
+            print(f"Exported scdf ({args.filter}) -> {dest} ({n} notes, {e} links)")
+        else:
+            deg = args.min_degree if args.min_degree > 0 else 8
+            dest, n, e, _ = export_graphrag_scope("scdf", "SCDF", min_degree=deg, folder_name=f"scdf_hubs_deg{deg}")
+            print(f"Exported scdf (min_degree={deg}) -> {dest} ({n} notes, {e} links)")
 
     if args.scope in {"ifcsg_graph", "all"} and (GRAPHRAG_DIR / "ifcsg" / "output" / "entities.parquet").is_file():
         if args.filter:

@@ -510,6 +510,9 @@ def initialize_engine(scope, provider="gemini"):
                 "component", "measurement", "condition", "table", "figure",
             ]
 
+        if scope in {"full", "scdf"}:
+            config.setdefault("extract_graph", {})["max_gleanings"] = 0
+            config.setdefault("cluster_graph", {})["max_cluster_size"] = 25
         config.setdefault("cluster_graph", {})["use_lcc"] = False
         config_file.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
 
