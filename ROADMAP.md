@@ -11,11 +11,9 @@ Current branch: `feat/ifcsg-semantic-layer` (GitHub: `https://github.com/foodrun
 - [x] **Portable index backup zip** (`sg_bim_graphrag_output_2026.zip`, `50.89 MB`, zero `.env`/cache) ready for Google Drive.
 - [x] **Local Search UI Workbench** (`_tools/ui_app.py` at `http://127.0.0.1:8000`) showing BCA Design Requirements + SCDF Fire Code (540p) alongside CORENET X IFC+SG Model Requirements.
 
-## Large-PDF Cost Settings (Remember for Future PDFs)
-- In `03_graphrag/<scope>/settings.yaml` (now automatic in `_tools/prepare.py` for `full` and `scdf`):
-  - `extract_graph.max_gleanings: 0` (single extraction pass per chunk instead of re-reading every chunk twice)
-  - `cluster_graph.max_cluster_size: 25` (fewer, larger topic clusters → ~60% fewer community reports; all entities/links stay 100% intact)
-  - `cluster_graph.use_lcc: false` (keeps all disconnected chapters searchable)
+## Stage 03 Indexing Options (Choose Track A or Track B for Each New Code)
+- **Track A — Microsoft GraphRAG (`graphrag index`):** Uses `gemini-3.8-flash` + `gemini-embedding-2` with `max_gleanings: 0`, `max_cluster_size: 25`, `use_lcc: false` (already default in `_tools/prepare.py`). Best when you want Microsoft's `graphrag query --method local|global` CLI and community reports.
+- **Track B — Local / Antigravity Builder + `gemini-embedding-2`:** Uses Python parsers + Antigravity review to build the exact same `entities.parquet` & `relationships.parquet` locally (zero chat-API cost), then calls Google's API only for `gemini-embedding-2` (`~$0.01–$0.50`). Mandatory for structured Excel files and available as a low-cost option for future numbered PDFs (BCA Approved Document V7.08, URA, PUB, NEA).
 
 ## Next Steps (In Order)
 1. **Test the updated local UI (`http://127.0.0.1:8000`)**
