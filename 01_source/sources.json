@@ -40,5 +40,21 @@
     "applies_when": "Identify the project submission date and the relevant revision. Section A.1 describes acceptable and alternative solutions.",
     "url": "https://isomer-user-content.by.gov.sg/338/9b829cff-5743-47b1-8fbf-b4c8f426d6df/approved-document-v7-07.pdf",
     "scope_source": "https://www1.bca.gov.sg/safety-and-standards/building-control-act/"
+  },
+  {
+    "source_id": "ifcsg2609",
+    "document_id": "doc:ifcsg-mapping",
+    "document_label": "CORENET X IFC+SG Industry Mapping File",
+    "authority": "CORENET X",
+    "document": "IFC+SG Industry Mapping File (CORENET X CoP 3.1 Edition)",
+    "edition": "2026-09-25 (CoP 3.1)",
+    "source_kind": "bim schema mapping",
+    "checked_on": "2026-11-22",
+    "revision_date": "2026-09-25",
+    "effective_from": "2026-09-25",
+    "applies_when": "CORENET X IFC+SG digital regulatory submissions across BCA, SCDF, URA, PUB, NEA, LTA, and NParks.",
+    "url": "https://info.corenet.gov.sg/docs/default-source/requirements/industry-mapping-09-2026.xlsx?Status=Master&sfvrsn=b9b7c40f_2",
+    "scope_source": "https://info.corenet.gov.sg/ifc-sg/requirements---submission/ifc-sg-excel-mapping-file",
+    "sha256": "d0346db4ada59d9fef5858794102e1404b8139c368f9efcc87547b913f1e0309"
   }
 ]

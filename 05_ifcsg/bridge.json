@@ -1,0 +1,384 @@
+{
+  "schema_version": "0.2.0",
+  "standard": "IFC4 + Singapore CORENET X IFC+SG (CoP 3.1, 2026-09-25)",
+  "source_mapping": "01_source/ifcsg_edition.json",
+  "notes": "Semantic bridge connecting BCA Accessibility Code 2025 v1.1, SCDF Fire Code 2023, and BCA Approved Document V7.08 provisions to official CORENET X IFC+SG entities, *USERDEFINED subtypes, SGPset_* property sets, and deterministic checks. All SGPset_* properties below have been verified directly against industry-mapping-09-2026.xlsx (SHA-256 d0346db4ada59d9fef5858794102e1404b8139c368f9efcc87547b913f1e0309).",
+  "ifc_entities": [
+    {
+      "id": "ifcsg:IfcSpace",
+      "ifc_class": "IfcSpace",
+      "predefined_type": "SPACE | *ACCESSIBLEROUTE | *AREA_GFA",
+      "spatial_container": "IfcBuildingStorey",
+      "label": "IFC+SG Accessible Space & Accessible Route",
+      "multicode_concepts": ["space:accessible-washroom"],
+      "graphrag_full_entities": [
+        "ACCESSIBLE INDIVIDUAL WASHROOM",
+        "LARGER ACCESSIBLE INDIVIDUAL WASHROOM",
+        "ACCESSIBLE INDIVIDUAL SHOWER FACILITY",
+        "ACCESSIBLE WATER CLOSET CUBICLE",
+        "CLEAR FLOOR SPACE"
+      ],
+      "property_sets": [
+        {
+          "pset": "SGPset_Space",
+          "properties": [
+            "LargerAccessible",
+            "BarrierFreeAccessibility",
+            "AmbulantDisabled",
+            "ChildrenFriendly",
+            "ElderlyFriendly",
+            "HearingEnhancement",
+            "StepRampAccess",
+            "OccupancyType",
+            "PurposeGroup",
+            "FireDetectionAndSuppressionSystem",
+            "FireExit",
+            "Status",
+            "AmendmentStatus"
+          ],
+          "schema_status": "verified_corenet_x_2026_09",
+          "purpose": "Official CORENET X multi-agency space classification flags (LWC, BFA, Ambulant, OccupancyType, Fire alarm protection)."
+        },
+        {
+          "pset": "SGPset_SpaceDimension",
+          "properties": ["Width", "Area", "Height"],
+          "schema_status": "verified_corenet_x_2026_09",
+          "purpose": "Accessible route width (BCA) and space area/height (note: unobstructed clear width x depth still requires 3D geometry verification)."
+        }
+      ]
+    },
+    {
+      "id": "ifcsg:IfcSanitaryTerminal",
+      "ifc_class": "IfcSanitaryTerminal",
+      "predefined_type": "*WATERCLOSET | WASHHANDBASIN | SHOWER | URINAL | BIDET | BATH",
+      "spatial_container": "IfcSpace",
+      "label": "IFC+SG Sanitary Appliances (WC, Wash Basin, Shower, Urinal, Bidet)",
+      "multicode_concepts": ["space:accessible-washroom"],
+      "graphrag_full_entities": [
+        "WATER CLOSET",
+        "WASH BASIN",
+        "SHOWER SEAT"
+      ],
+      "property_sets": [
+        {
+          "pset": "SGPset_SanitaryTerminal",
+          "properties": [
+            "BarrierFreeAccessibility",
+            "AmbulantDisabled",
+            "ChildrenFriendly",
+            "WELS",
+            "PanMounting",
+            "ToiletPanType",
+            "Waterless",
+            "SystemName",
+            "SystemType",
+            "Status",
+            "AmendmentStatus"
+          ],
+          "schema_status": "verified_corenet_x_2026_09",
+          "purpose": "Cross-agency sanitary appliance flags spanning BCA (BFA, Ambulant, ChildrenFriendly), PUB (WELS), and NEA (PanMounting, ToiletPanType)."
+        },
+        {
+          "pset": "Pset_SanitaryTerminalTypeWashHandBasin",
+          "properties": ["Mounting"],
+          "schema_status": "verified_corenet_x_2026_09",
+          "purpose": "Wash basin mounting type (NEA); exact rim AFFL and transfer clearance come from 3D placement geometry."
+        }
+      ]
+    },
+    {
+      "id": "ifcsg:IfcDoor",
+      "ifc_class": "IfcDoor",
+      "predefined_type": "DOOR | GATE | *BLASTDOOR | *ROLLERSHUTTER",
+      "spatial_container": "IfcBuildingStorey",
+      "label": "IFC+SG Door (BCA, SCDF, NEA)",
+      "multicode_concepts": ["space:accessible-washroom"],
+      "graphrag_full_entities": [
+        "DOORWAY"
+      ],
+      "property_sets": [
+        {
+          "pset": "SGPset_DoorDimension",
+          "properties": ["ClearWidth", "ClearHeight"],
+          "schema_status": "verified_corenet_x_2026_09",
+          "purpose": "Official CORENET X clear door opening width and height (also check native IfcDoor.OverallWidth)."
+        },
+        {
+          "pset": "SGPset_Door",
+          "properties": [
+            "PowerOperated",
+            "FireAccessOpening",
+            "OneWayLockingDevice",
+            "MainEntrance",
+            "AmendmentStatus"
+          ],
+          "schema_status": "verified_corenet_x_2026_09",
+          "purpose": "Singapore multi-agency door flags across BCA (PowerOperated), SCDF (FireAccessOpening, OneWayLockingDevice), and NEA (MainEntrance)."
+        },
+        {
+          "pset": "Pset_DoorCommon",
+          "properties": ["FireExit", "FireRating", "IsExternal", "SelfClosing"],
+          "schema_status": "verified_corenet_x_2026_09",
+          "purpose": "Standard IFC4 fire exit, fire rating, external, and self-closing properties used by SCDF and BCA."
+        }
+      ]
+    },
+    {
+      "id": "ifcsg:IfcAlarm",
+      "ifc_class": "IfcAlarm",
+      "predefined_type": "*VISUALALARM | *SOUNDER | *MANUALALARMCALLPOINT | *FIREALARMPANEL | *HOMEFIREALARMDEVICE",
+      "spatial_container": "IfcSpace",
+      "label": "IFC+SG Fire Alarm & Visual Warning Devices (SCDF) + Assistance Call Reference",
+      "multicode_concepts": [
+        "system:assistance-alarm",
+        "system:fire-alarm",
+        "space:accessible-washroom"
+      ],
+      "graphrag_full_entities": [
+        "EMERGENCY PUSH-BUTTON",
+        "EMERGENCY ASSISTANCE ALARM SYSTEM"
+      ],
+      "property_sets": [
+        {
+          "pset": "SGPset_Alarm",
+          "properties": ["Status", "AmendmentStatus"],
+          "schema_status": "verified_corenet_x_2026_09",
+          "purpose": "Official SCDF IfcAlarm subtype mapping (*VISUALALARM for visual fire warnings in washrooms; note BCA emergency assistance push-buttons are not yet a separate subtype in CX Pilot Mapping 09-2026 and require ELV submittal/placement verification)."
+        }
+      ]
+    },
+    {
+      "id": "ifcsg:IfcRamp",
+      "ifc_class": "IfcRamp",
+      "predefined_type": "STRAIGHT_RUN_RAMP | *FLAREDKERBRAMP | *CURVEDRAMP",
+      "spatial_container": "IfcBuildingStorey",
+      "label": "IFC+SG Ramp (BCA & LTA)",
+      "multicode_concepts": ["space:escape-route-ramp"],
+      "graphrag_full_entities": [
+        "RAMP",
+        "KERB RAMP",
+        "ACCESSIBLE ROUTE"
+      ],
+      "property_sets": [
+        {
+          "pset": "SGPset_RampDimension",
+          "properties": ["Gradient", "Width"],
+          "schema_status": "verified_corenet_x_2026_09",
+          "purpose": "Official CORENET X ramp gradient and clear width parameters across all agencies."
+        },
+        {
+          "pset": "SGPset_Ramp",
+          "properties": [
+            "BarrierFreeAccessibility",
+            "TransitionRamp",
+            "Accessway",
+            "Egress",
+            "Ingress",
+            "Vehicular",
+            "Status",
+            "AmendmentStatus"
+          ],
+          "schema_status": "verified_corenet_x_2026_09",
+          "purpose": "BCA accessibility flag (BarrierFreeAccessibility) plus LTA vehicular/accessway flags."
+        }
+      ]
+    },
+    {
+      "id": "ifcsg:IfcRailing",
+      "ifc_class": "IfcRailing",
+      "predefined_type": "GUARDRAIL | *BOLLARD",
+      "spatial_container": "IfcSpace",
+      "label": "IFC+SG Railing & Safety Barriers (BCA)",
+      "multicode_concepts": ["space:accessible-washroom", "space:escape-route-ramp"],
+      "graphrag_full_entities": [
+        "HANDRAIL",
+        "GRAB BARS"
+      ],
+      "property_sets": [
+        {
+          "pset": "SGPset_RailingDimension",
+          "properties": ["Height"],
+          "schema_status": "verified_corenet_x_2026_09",
+          "purpose": "Official BCA railing height dimension."
+        },
+        {
+          "pset": "SGPset_Railing",
+          "properties": ["SafetyBarrier", "TypeOfBarrier", "IsLaminated", "Status", "AmendmentStatus"],
+          "schema_status": "verified_corenet_x_2026_09",
+          "purpose": "Official BCA safety barrier classification and laminated glass indicator."
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "check_id": "CHK-WASH-01",
+      "topic": "washroom",
+      "title": "Larger Accessible Individual Washroom (LWC) clear internal dimensions",
+      "authority": "BCA",
+      "code_ref": "5.2.1(b)",
+      "source_id": "coa25v1.1",
+      "pdf_page": 63,
+      "applies_when": "Where LWC is triggered (e.g., Clause 5.1.3(d) place of worship at every level with toilets; see Table 1 p. 20; check SGPset_Space.LargerAccessible = TRUE).",
+      "ifc_entity_id": "ifcsg:IfcSpace",
+      "evaluation_method": "geometry_clearance",
+      "measurement_basis": "Filter IfcSpace where SGPset_Space.LargerAccessible = TRUE, then measure minimum clear internal width x depth between finished wall faces unobstructed by door swing (verify against Figure 44, p. 65).",
+      "unit": "mm",
+      "threshold": {"min_width_mm": 1800, "min_depth_mm": 2100},
+      "open_evidence_if_unmodeled": "Dimensioned 1:50 architectural toilet plan and IfcSpace clear-zone geometry linked by GlobalId."
+    },
+    {
+      "check_id": "CHK-WASH-02",
+      "topic": "washroom",
+      "title": "Standard Accessible Individual Washroom (AWC) clear internal dimensions",
+      "authority": "BCA",
+      "code_ref": "5.2.1(a)",
+      "source_id": "coa25v1.1",
+      "pdf_page": 63,
+      "applies_when": "Every toilet cluster where toilets are provided (Clause 5.1.1, p. 61; check SGPset_Space.BarrierFreeAccessibility = TRUE and Clause 5.1.2/5.6 cubicle substitution).",
+      "ifc_entity_id": "ifcsg:IfcSpace",
+      "evaluation_method": "geometry_clearance",
+      "measurement_basis": "Minimum clear internal width x depth between finished faces of IfcSpace.",
+      "unit": "mm",
+      "threshold": {"min_width_mm": 1750, "min_depth_mm": 1750},
+      "open_evidence_if_unmodeled": "Dimensioned 1:50 architectural plan and IfcSpace internal boundary geometry."
+    },
+    {
+      "check_id": "CHK-WASH-03",
+      "topic": "washroom",
+      "title": "WC fixture centreline, rear distance, transfer zone, and seat height",
+      "authority": "BCA",
+      "code_ref": "5.8.6.1 / 5.8.6.2",
+      "source_id": "coa25v1.1",
+      "pdf_page": 83,
+      "applies_when": "IfcSanitaryTerminal (*WATERCLOSET) with SGPset_SanitaryTerminal.BarrierFreeAccessibility = TRUE inside an accessible washroom or WC cubicle.",
+      "ifc_entity_id": "ifcsg:IfcSanitaryTerminal",
+      "evaluation_method": "geometry_clearance",
+      "measurement_basis": "3D placement of IfcSanitaryTerminal (*WATERCLOSET) relative to adjacent wall face, rear wall face, and IfcBuildingStorey FFL.",
+      "unit": "mm",
+      "threshold": {
+        "wall_centreline_min_mm": 460,
+        "wall_centreline_max_mm": 480,
+        "front_to_rear_wall_min_mm": 750,
+        "seat_height_min_mm": 450,
+        "seat_height_max_mm": 480,
+        "transfer_space_min_mm": [900, 1500]
+      },
+      "open_evidence_if_unmodeled": "Sanitary fixture elevation/plan details and manufacturer cut-sheet."
+    },
+    {
+      "check_id": "CHK-WASH-04",
+      "topic": "washroom",
+      "title": "Wash basin wall centreline and rim height AFFL",
+      "authority": "BCA",
+      "code_ref": "5.8.5.1",
+      "source_id": "coa25v1.1",
+      "pdf_page": 81,
+      "applies_when": "IfcSanitaryTerminal (WASHHANDBASIN) inside an accessible individual washroom or accessible toilet cluster.",
+      "ifc_entity_id": "ifcsg:IfcSanitaryTerminal",
+      "evaluation_method": "geometry_clearance",
+      "measurement_basis": "3D placement of IfcSanitaryTerminal (WASHHANDBASIN): centreline to side wall, top rim AFFL, and non-obstruction of WC transfer space.",
+      "unit": "mm",
+      "threshold": {
+        "side_wall_centreline_min_mm": 460,
+        "rim_affl_min_mm": 800,
+        "rim_affl_max_mm": 840
+      },
+      "open_evidence_if_unmodeled": "Internal washroom elevation drawing and sanitaryware schedule."
+    },
+    {
+      "check_id": "CHK-WASH-05",
+      "topic": "washroom",
+      "title": "Emergency assistance alarm activation control mounting height & reach to WC",
+      "authority": "BCA",
+      "code_ref": "5.2.2(d) / 5.8.4.2 / 5.8.6.3",
+      "source_id": "coa25v1.1",
+      "pdf_page": 81,
+      "applies_when": "Accessible individual washrooms (including LWC) and accessible changing rooms.",
+      "ifc_entity_id": "ifcsg:IfcAlarm",
+      "evaluation_method": "geometry_clearance",
+      "measurement_basis": "Mounting elevation AFFL of push-button/pull-cord (400-600 mm) and horizontal distance from WC pan front/side edge (150-300 mm, p. 83).",
+      "unit": "mm",
+      "threshold": {
+        "mounting_affl_min_mm": 400,
+        "mounting_affl_max_mm": 600,
+        "distance_from_wc_edge_min_mm": 150,
+        "distance_from_wc_edge_max_mm": 300
+      },
+      "open_evidence_if_unmodeled": "ELV layout & internal elevation showing alarm control position relative to WC."
+    },
+    {
+      "check_id": "CHK-WASH-06",
+      "topic": "washroom",
+      "title": "Emergency assistance alarm waterproof rating, colour contrast, call sign, and receiving destination",
+      "authority": "BCA",
+      "code_ref": "5.8.4.1 / 5.8.4.2 / 5.8.4.3",
+      "source_id": "coa25v1.1",
+      "pdf_page": 81,
+      "applies_when": "When emergency assistance alarm is required.",
+      "ifc_entity_id": "ifcsg:IfcAlarm",
+      "evaluation_method": "submittal_or_drawing",
+      "measurement_basis": "Waterproof rating, visual contrast against wall finish, adjacent 'Emergency Call' sign, outside indicator, and wired connection to management office / FCC / caregiver's office.",
+      "unit": "boolean/spec",
+      "threshold": {
+        "waterproof": true,
+        "colour_contrast": true,
+        "emergency_call_sign": true,
+        "outside_indicator": true,
+        "permitted_destinations": ["management office", "fire command centre", "caregiver's office"]
+      },
+      "open_evidence_if_unmodeled": "ELV device cut-sheet, finish/signage schedule, and cause-and-effect wiring diagram."
+    },
+    {
+      "check_id": "CHK-WASH-07",
+      "topic": "washroom",
+      "title": "Visual fire warning device inside toilet / full-height cubicle",
+      "authority": "SCDF",
+      "code_ref": "6.3.5c.(1)(a)(i)",
+      "source_id": "fc23@2026-11-20",
+      "pdf_page": null,
+      "applies_when": "Building protected by a fire alarm system (check SGPset_Space.FireDetectionAndSuppressionSystem), in locations where a person with hearing impairment can be isolated (toilets and inside full-height partitioned cubicles).",
+      "ifc_entity_id": "ifcsg:IfcAlarm",
+      "evaluation_method": "property_lookup",
+      "measurement_basis": "Verify presence of IfcAlarm with ObjectType/PredefinedType *VISUALALARM contained inside the washroom IfcSpace (distinct from BCA assistance alarm).",
+      "unit": "count",
+      "threshold": {"min_visual_fire_warning_devices": 1},
+      "open_evidence_if_unmodeled": "Fire alarm building protection trigger confirmation, electrical fire alarm layout, and cubicle partition height."
+    },
+    {
+      "check_id": "CHK-RAMP-01",
+      "topic": "ramp",
+      "title": "Escape-route minor level change ramp gradient & uniform slope between landings",
+      "authority": "BCA / SCDF",
+      "code_ref": "SCDF 2.4.1b -> BCA 4.6.2.1 & Table 4",
+      "source_id": "coa25v1.1",
+      "pdf_page": 46,
+      "applies_when": "Escape route for persons with disabilities with a minor level change within a storey (verify SCDF 2.4.1a exemptions) and any IfcRamp with SGPset_Ramp.BarrierFreeAccessibility = TRUE.",
+      "ifc_entity_id": "ifcsg:IfcRamp",
+      "evaluation_method": "geometry_clearance",
+      "measurement_basis": "Check SGPset_RampDimension.Gradient & Width AND verify total vertical rise, horizontal run, uniform slope across each flight, and top/bottom/intermediate landings against BCA Table 4 (PDF p. 43).",
+      "unit": "ratio/mm",
+      "threshold": {
+        "uniform_gradient_between_landings": true,
+        "table_reference": "BCA 2025 v1.1 Table 4 (PDF p. 43)"
+      },
+      "open_evidence_if_unmodeled": "Ramp section/plan with spot levels, rise/run dimensions, landing geometry, and escape route classification."
+    },
+    {
+      "check_id": "CHK-RAMP-02",
+      "topic": "ramp",
+      "title": "Accessible doorway clear opening width along route / washroom entrance",
+      "authority": "BCA",
+      "code_ref": "4.4 / 5.8.1",
+      "source_id": "coa25v1.1",
+      "pdf_page": 81,
+      "applies_when": "Doors along accessible routes and accessible individual washrooms (verify exact clause & figure in BCA 2025 v1.1).",
+      "ifc_entity_id": "ifcsg:IfcDoor",
+      "evaluation_method": "property_lookup",
+      "measurement_basis": "Read SGPset_DoorDimension.ClearWidth and SGPset_Door.PowerOperated, and cross-check clear leaf opening width from IfcDoor geometry.",
+      "unit": "mm",
+      "threshold": {"verify_against_clause": "BCA 2025 v1.1 Clauses 4.4 & 5.8.1"},
+      "open_evidence_if_unmodeled": "Door schedule linked to IfcDoor GlobalId and clear opening leaf detail."
+    }
+  ]
+}

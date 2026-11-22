@@ -1,0 +1,17 @@
+{
+  "publisher": "Singapore CORENET X (BCA / Multi-Agency)",
+  "title": "IFC+SG Industry Mapping File (CORENET X CoP 3.1 Edition)",
+  "edition": "CoP 3.1",
+  "revision_date": "2026-09-25",
+  "filename": "ifcsg_industry_mapping_09_2026.xlsx",
+  "sha256": "d0346db4ada59d9fef5858794102e1404b8139c368f9efcc87547b913f1e0309",
+  "xlsx": "https://info.corenet.gov.sg/docs/default-source/requirements/industry-mapping-09-2026.xlsx?Status=Master&sfvrsn=b9b7c40f_2",
+  "publisher_page": "https://info.corenet.gov.sg/ifc-sg/requirements---submission/ifc-sg-excel-mapping-file",
+  "sheets": [
+    "README",
+    "Change Log",
+    "CX Pilot Mapping",
+    "Space Values",
+    "Industrial Activity Type Enum"
+  ]
+}

@@ -75,9 +75,24 @@ py -3.12 -m venv .venv            # or python3.12 -m venv .venv on macOS/Linux
 python -m pip install -r requirements.txt
 python _tools/prepare.py multicode
 python _tools/prepare.py full
+python _tools/prepare.py ifcsg
+python _tools/build_ifcsg_graph.py build
 ```
 
-Then add `GEMINI_API_KEY` to `03_graphrag/multicode/.env` and `03_graphrag/full/.env`. To skip re-indexing the 116-page BCA PDF on a second machine, transfer a zip of `03_graphrag/full/output/` (never `.env` or `cache/`) and extract it into `03_graphrag/full/output/` before running `graphrag query`.
+Then add `GEMINI_API_KEY` to `03_graphrag/{multicode,full,ifcsg}/.env`. To skip re-indexing on a second machine, transfer a zip of `03_graphrag/{full,multicode,ifcsg}/output/` (never `.env` or `cache/`) and extract it into `03_graphrag/` before running queries.
+
+## Full CORENET X IFC+SG graph & Obsidian visualization
+
+The CORENET X Excel mapping file (`01_source/ifcsg_edition.json`, 25 Sep 2026 CoP 3.1) covers all 7 Singapore agencies (`BCA`, `SCDF`, `URA`, `PUB`, `NEA`, `LTA`, `NParks`). Because Excel is already structured, build it deterministically instead of running chat LLM extraction:
+
+```bash
+python _tools/build_ifcsg_graph.py build --embed --match-bca
+python _tools/build_ifcsg_graph.py find "washroom alarm door"      # offline ($0)
+python _tools/build_ifcsg_graph.py search "refuse chute NEA PUB"   # vector search (gemini-embedding-2)
+python _tools/ifcsg_bridge.py validate
+python _tools/ifcsg_bridge.py checklist washroom
+python _tools/export_obsidian.py --scope all                       # export to 03_graphrag/obsidian_graph/
+```
 
 Use local search for a particular space, component or clause. Global search summarises themes across a larger corpus. For both, open the source pages and follow each explicit cross-reference before issuing a project finding. GraphRAG's internal citation IDs can be resolved through its text units and document records. The input also puts the BCA reference and page into each chunk. [Query methods](https://microsoft.github.io/graphrag/query/overview/) · [GraphRAG CLI](https://microsoft.github.io/graphrag/cli/)
 

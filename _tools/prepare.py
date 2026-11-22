@@ -1,6 +1,7 @@
-"""Prepare the pinned BCA PDF as a private JSONL input to Microsoft GraphRAG."""
+"""Prepare pinned BCA PDF, multicode, and CORENET X IFC+SG Excel inputs for Microsoft GraphRAG."""
 
 import argparse
+from collections import defaultdict
 from hashlib import sha256
 from io import BytesIO
 import json
@@ -23,6 +24,7 @@ SOURCE = ROOT / "01_source"
 EVIDENCE = ROOT / "02_evidence"
 ENGINE = ROOT / "03_graphrag"
 EDITION = json.loads((SOURCE / "edition.json").read_text(encoding="utf-8"))
+IFCSG_EDITION = json.loads((SOURCE / "ifcsg_edition.json").read_text(encoding="utf-8"))
 
 
 def save(path, data):
@@ -56,6 +58,245 @@ def open_edition(local_copy):
     if not cached.exists() or local_copy:
         save(cached, data)
     return reader
+
+
+def open_ifcsg_workbook(local_copy):
+    try:
+        import openpyxl
+    except ImportError as error:
+        raise ValueError("Install openpyxl (pip install -r requirements.txt) to prepare the ifcsg scope.") from error
+
+    cached = SOURCE / "output" / IFCSG_EDITION["filename"]
+    if local_copy or cached.exists():
+        data = (local_copy or cached).read_bytes()
+    else:
+        with urlopen(IFCSG_EDITION["xlsx"], timeout=90) as response:
+            data = response.read()
+    digest = sha256(data).hexdigest()
+    if digest != IFCSG_EDITION["sha256"]:
+        raise ValueError(
+            "The IFC+SG Excel workbook differs from 01_source/ifcsg_edition.json. "
+            f"Got SHA-256 {digest}. Inspect the Change Log sheet before updating ifcsg_edition.json."
+        )
+    if not cached.exists() or local_copy:
+        save(cached, data)
+    return openpyxl.load_workbook(BytesIO(data), read_only=True, data_only=True), digest
+
+
+def _norm_cell(val):
+    if val is None:
+        return ""
+    return " ".join(str(val).strip().split())
+
+
+def _norm_agency(val):
+    text = _norm_cell(val)
+    upper = text.upper()
+    if upper == "ALL":
+        return "All"
+    if upper == "NPARKS":
+        return "NParks"
+    return text
+
+
+def _chunk(items, size):
+    for i in range(0, len(items), size):
+        yield items[i:i + size]
+
+
+def records_for_ifcsg(wb):
+    """Build cohesive semantic JSONL records from all sheets of the official CORENET X IFC+SG workbook."""
+    rev = IFCSG_EDITION["revision_date"]
+    url = IFCSG_EDITION["publisher_page"]
+
+    # 1. Edition & Change Log summary
+    readme_lines = [
+        _norm_cell(" ".join(_norm_cell(c) for c in row if _norm_cell(c)))
+        for row in wb["README"].iter_rows(values_only=True)
+    ]
+    readme_lines = [line for line in readme_lines if line]
+    changelog_rows = list(wb["Change Log"].iter_rows(values_only=True))
+    recent_changes = []
+    for row in changelog_rows[1:25]:
+        date_str = str(row[0])[:10] if row[0] else ""
+        parts = [date_str, _norm_cell(row[1]), _norm_cell(row[2]), _norm_cell(row[3])]
+        if any(parts):
+            recent_changes.append(" | ".join(p for p in parts if p))
+    yield {
+        "id": f"SG-IFCSG-{rev}/overview",
+        "title": f"CORENET X IFC+SG {rev} | Overview & Change Log",
+        "source_sheet": "README + Change Log",
+        "ifc_entity": "N.A",
+        "agencies": "All",
+        "discipline": "All",
+        "record_kind": "schema overview",
+        "source_url": url,
+        "text": (
+            f"CORENET X IFC+SG Industry Mapping File ({IFCSG_EDITION['edition']}, revised {rev}).\n\n"
+            "README:\n" + "\n".join(f"- {line}" for line in readme_lines) + "\n\n"
+            "Recent Change Log entries:\n" + "\n".join(f"- {line}" for line in recent_changes)
+        ),
+    }
+
+    # 2. CX Pilot Mapping grouped by (Identified Component, IFC4 Entity) across all agencies
+    ws = wb["CX Pilot Mapping"]
+    cx_rows = [row for row in list(ws.iter_rows(values_only=True))[1:] if any(row[:14])]
+    grouped = defaultdict(list)
+    for row in cx_rows:
+        component = _norm_cell(row[2])
+        ifc_entity = _norm_cell(row[9]) or "Unspecified"
+        grouped[(component, ifc_entity)].append(row)
+
+    for (component, ifc_entity), group_rows in sorted(grouped.items()):
+        agencies = sorted({_norm_agency(r[1]) for r in group_rows if _norm_cell(r[1])})
+        disciplines = sorted({_norm_cell(r[8]) for r in group_rows if _norm_cell(r[8])})
+        subtypes = sorted({
+            st.strip()
+            for r in group_rows
+            if _norm_cell(r[10]) and _norm_cell(r[10]).upper() != "N.A"
+            for st in _norm_cell(r[10]).split(",")
+            if st.strip()
+        })
+        revit = sorted({_norm_cell(r[4]) for r in group_rows if _norm_cell(r[4]) and _norm_cell(r[4]).upper() != "N.A"})
+        archicad = sorted({_norm_cell(r[5]) for r in group_rows if _norm_cell(r[5]) and _norm_cell(r[5]).upper() != "N.A"})
+        tekla = sorted({_norm_cell(r[6]) for r in group_rows if _norm_cell(r[6]) and _norm_cell(r[6]).upper() != "N.A"})
+        bentley = sorted({_norm_cell(r[7]) for r in group_rows if _norm_cell(r[7]) and _norm_cell(r[7]).upper() != "N.A"})
+
+        param_lines = []
+        for r in group_rows:
+            sn = _norm_cell(r[0])
+            ag = _norm_agency(r[1])
+            param = _norm_cell(r[3])
+            sub = _norm_cell(r[10])
+            pset = _norm_cell(r[11])
+            pname = _norm_cell(r[12])
+            ptype = _norm_cell(r[13])
+            punit = _norm_cell(r[14]) if len(r) > 14 else ""
+            mat = _norm_cell(r[15]) if len(r) > 15 else ""
+            accepted = _norm_cell(r[16]) if len(r) > 16 else ""
+            sample = _norm_cell(r[17]) if len(r) > 17 else ""
+            if "please refer to property sets below" in pset.lower():
+                param_lines.append(f"- [S/N {sn} | {ag}] Subtype declaration: {param or 'Component'} -> IFC Sub Type: {sub}")
+                continue
+            prop_ref = f"{pset}.{pname}" if pset and pset.upper() != "N.A" else (pname or "N.A")
+            details = [f"Type: {ptype}" if ptype and ptype.upper() != "N.A" else ""]
+            if punit and punit.upper() != "N.A":
+                details.append(f"Unit: {punit}")
+            if sub and sub.upper() != "N.A":
+                details.append(f"SubTypes: {sub}")
+            if mat and mat.upper() != "N.A":
+                details.append(f"MaterialSet: {mat}")
+            if accepted and accepted.upper() != "N.A":
+                details.append(f"AcceptedValues: {accepted}")
+            if sample and sample.upper() != "N.A":
+                details.append(f"Sample: {sample}")
+            detail_str = "; ".join(d for d in details if d)
+            param_lines.append(f"- [S/N {sn} | {ag}] Parameter '{param}' -> `{prop_ref}` ({detail_str})")
+
+        slug = re.sub(r"[^a-zA-Z0-9]+", "-", f"{component}-{ifc_entity}").strip("-").lower()
+        text = (
+            f"Identified Component: {component}\n"
+            f"IFC4 Entity: {ifc_entity}\n"
+            f"IFC Sub Types (* = USERDEFINED): {', '.join(subtypes) if subtypes else 'N.A'}\n"
+            f"Governing Agencies: {', '.join(agencies)}\n"
+            f"Suggested Disciplines: {', '.join(disciplines)}\n"
+            f"Authoring Tool Representations: "
+            f"Revit={', '.join(revit) or 'N.A'}; "
+            f"Archicad={', '.join(archicad) or 'N.A'}; "
+            f"Tekla={', '.join(tekla) or 'N.A'}; "
+            f"Bentley={', '.join(bentley) or 'N.A'}\n\n"
+            "Mapped Regulatory Parameters & Property Sets:\n"
+            + "\n".join(param_lines)
+        )
+        yield {
+            "id": f"SG-IFCSG-{rev}/component/{slug}",
+            "title": f"IFC+SG | {component} | {ifc_entity}",
+            "source_sheet": "CX Pilot Mapping",
+            "ifc_entity": ifc_entity,
+            "agencies": ", ".join(agencies),
+            "discipline": ", ".join(disciplines),
+            "record_kind": "ifc-sg component mapping",
+            "source_url": url,
+            "text": text,
+        }
+
+    # 3. Space Values controlled vocabularies
+    sv_rows = [row for row in list(wb["Space Values"].iter_rows(values_only=True))[1:] if _norm_cell(row[0])]
+    sv_by_prop = defaultdict(list)
+    for row in sv_rows:
+        prop = _norm_cell(row[0])
+        val = _norm_cell(row[1])
+        dev_use = _norm_cell(row[2]) if len(row) > 2 else ""
+        if val:
+            sv_by_prop[prop].append((val, dev_use))
+
+    for prop, entries in sorted(sv_by_prop.items()):
+        if prop == "AGF_Name":
+            by_use = defaultdict(list)
+            for val, dev_use in entries:
+                by_use[dev_use or "General"].append(val)
+            for dev_use, vals in sorted(by_use.items()):
+                for part, batch in enumerate(_chunk(vals, 60), 1):
+                    slug = re.sub(r"[^a-zA-Z0-9]+", "-", f"agf-name-{dev_use}-{part}").strip("-").lower()
+                    yield {
+                        "id": f"SG-IFCSG-{rev}/space-values/{slug}",
+                        "title": f"IFC+SG Space Values | AGF_Name | {dev_use} (part {part})",
+                        "source_sheet": "Space Values",
+                        "ifc_entity": "IfcSpace",
+                        "agencies": "URA",
+                        "discipline": "ARC",
+                        "record_kind": "controlled vocabulary",
+                        "source_url": url,
+                        "text": (
+                            f"Property: SGPset_SpaceArea_GFA.AGF_Name (IFC4 Entity: IfcSpace, SubType: *AREA_GFA)\n"
+                            f"AGF_DevelopmentUse: {dev_use}\n"
+                            f"Controlled AGF_Name values ({len(batch)} items):\n"
+                            + "\n".join(f"- {v}" for v in batch)
+                        ),
+                    }
+        else:
+            vals = [val for val, _ in entries]
+            chunk_size = 60
+            for part, batch in enumerate(_chunk(vals, chunk_size), 1):
+                suffix = f" (part {part})" if len(vals) > chunk_size else ""
+                slug = re.sub(r"[^a-zA-Z0-9]+", "-", f"{prop}-{part}").strip("-").lower()
+                yield {
+                    "id": f"SG-IFCSG-{rev}/space-values/{slug}",
+                    "title": f"IFC+SG Space Values | {prop}{suffix}",
+                    "source_sheet": "Space Values",
+                    "ifc_entity": "IfcSpace",
+                    "agencies": "All",
+                    "discipline": "ARC",
+                    "record_kind": "controlled vocabulary",
+                    "source_url": url,
+                    "text": (
+                        f"Property: {prop} (IFC4 Entity: IfcSpace)\n"
+                        f"Controlled values ({len(batch)} items):\n"
+                        + "\n".join(f"- {v}" for v in batch)
+                    ),
+                }
+
+    # 4. Industrial Activity Type Enum (SS593 Annex A)
+    ind_rows = [
+        (_norm_cell(r[0]), _norm_cell(r[1]))
+        for r in list(wb["Industrial Activity Type Enum"].iter_rows(values_only=True))[1:]
+        if _norm_cell(r[0]) or _norm_cell(r[1])
+    ]
+    for part, batch in enumerate(_chunk(ind_rows, 40), 1):
+        yield {
+            "id": f"SG-IFCSG-{rev}/industrial-enum/part-{part}",
+            "title": f"IFC+SG Industrial Activity Type Enum | SS593 Annex A (part {part})",
+            "source_sheet": "Industrial Activity Type Enum",
+            "ifc_entity": "IfcSpace",
+            "agencies": "NEA, SCDF, URA",
+            "discipline": "ARC",
+            "record_kind": "controlled vocabulary",
+            "source_url": url,
+            "text": (
+                "Controlled Enum Values for Industrial Activity Type (SS593 Annex A):\n"
+                + "\n".join(f"- {code}: {desc}" for desc, code in batch)
+            ),
+        }
 
 
 def boundary(lines, marker):
@@ -113,7 +354,7 @@ def records_for(reader, scope):
     for spec in specs:
         page = spec["page"]
         if page not in pages:
-            pages[page] = [" ".join(line.split()) for line in reader.pages[page-1].extract_text().splitlines() if line.strip()]
+            pages[page] = [" ".join(line.split()) for line in reader.pages[page - 1].extract_text().splitlines() if line.strip()]
         passage = select_passage(pages[page], spec)
         if "navigation" in spec:
             passage += "\n\nEditor's navigation note: " + spec["navigation"]
@@ -124,6 +365,16 @@ SG_DOMAIN_CONTEXT = (
     'Domain context: These records come from Singapore building regulations. '
     '"BCA" always means Singapore\'s Building and Construction Authority '
     '(never Building Code of Australia). "SCDF" means the Singapore Civil Defence Force.\n\n'
+)
+
+IFCSG_DOMAIN_CONTEXT = (
+    'Domain context: These records come from Singapore\'s CORENET X IFC+SG Industry Mapping File '
+    '(CoP 3.1 Edition). "BCA" is Singapore\'s Building and Construction Authority (never Building Code of Australia), '
+    '"SCDF" is Singapore Civil Defence Force, "URA" is Urban Redevelopment Authority, "PUB" is Singapore\'s National Water Agency, '
+    '"NEA" is National Environment Agency, "LTA" is Land Transport Authority, and "NParks" is National Parks Board. '
+    'Preserve exact IFC4 entity names (e.g., IfcSpace, IfcDoor, IfcSanitaryTerminal), exact *USERDEFINED subtypes '
+    '(e.g., *WATERCLOSET, *VISUALALARM, *ACCESSIBLEROUTE), exact property set and property names '
+    '(e.g., SGPset_Space.LargerAccessible, SGPset_DoorDimension.ClearWidth), data types, and controlled enum values.\n\n'
 )
 
 
@@ -179,31 +430,53 @@ def initialize_engine(scope, provider="gemini"):
             (staged / ".env").write_text("GEMINI_API_KEY=<YOUR_GEMINI_API_KEY>\n", encoding="utf-8")
         config["input"] = {"type": "jsonl", "id_column": "id", "title_column": "title", "text_column": "text"}
         config["input_storage"]["base_dir"] = f"../../02_evidence/output/{scope}"
-        config["chunking"]["prepend_metadata"] = ["title", "code_ref", "pdf_page", "record_kind"]
         if scope == "multicode":
             config["chunking"]["prepend_metadata"] = [
                 "title", "authority", "source_locator", "record_kind", "applies_when"
             ]
-        config["extract_graph"]["entity_types"] = [
-            "clause", "building use", "space", "building element", "system",
-            "component", "measurement", "condition", "table", "figure",
-        ]
+        elif scope == "ifcsg":
+            config["chunking"]["prepend_metadata"] = [
+                "title", "source_sheet", "ifc_entity", "agencies", "discipline", "record_kind"
+            ]
+        else:
+            config["chunking"]["prepend_metadata"] = ["title", "code_ref", "pdf_page", "record_kind"]
+
+        if scope == "ifcsg":
+            config["extract_graph"]["entity_types"] = [
+                "agency", "discipline", "identified component", "ifc entity", "ifc subtype",
+                "property set", "property", "enum value", "authoring representation", "space category",
+            ]
+        else:
+            config["extract_graph"]["entity_types"] = [
+                "clause", "building use", "space", "building element", "system",
+                "component", "measurement", "condition", "table", "figure",
+            ]
+
         config.setdefault("cluster_graph", {})["use_lcc"] = False
         config_file.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+
+        domain_note = IFCSG_DOMAIN_CONTEXT if scope == "ifcsg" else SG_DOMAIN_CONTEXT
         prompt_file = staged / config["extract_graph"]["prompt"]
         original = prompt_file.read_text(encoding="utf-8")
-        prompt_file.write_text(
-            SG_DOMAIN_CONTEXT
-            + "For regulatory material, preserve complete clause identifiers and subparagraph letters. "
-            "Bind each measurement and unit to its object, scope and conditions. Retain mandatory "
-            "or advisory wording. Treat captions and editorial navigation as source locators. "
-            "Only describe a cross-reference as explicit when it occurs in the Code text.\n\n" + original,
-            encoding="utf-8",
-        )
+        if scope == "ifcsg":
+            guidance = (
+                "Link each identified component to its IFC4 entity, IFC subtypes, governing agencies, "
+                "disciplines, authoring tool representations, property sets, exact property names, "
+                "data types/units, and controlled enum values.\n\n"
+            )
+        else:
+            guidance = (
+                "For regulatory material, preserve complete clause identifiers and subparagraph letters. "
+                "Bind each measurement and unit to its object, scope and conditions. Retain mandatory "
+                "or advisory wording. Treat captions and editorial navigation as source locators. "
+                "Only describe a cross-reference as explicit when it occurs in the Code text.\n\n"
+            )
+        prompt_file.write_text(domain_note + guidance + original, encoding="utf-8")
+
         community_prompt = staged / config["community_reports"]["graph_prompt"]
         if community_prompt.is_file():
             community_prompt.write_text(
-                SG_DOMAIN_CONTEXT + community_prompt.read_text(encoding="utf-8"),
+                domain_note + community_prompt.read_text(encoding="utf-8"),
                 encoding="utf-8",
             )
         staged.rename(root)
@@ -211,8 +484,9 @@ def initialize_engine(scope, provider="gemini"):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("scope", choices=["pilot", "full", "multicode"])
+    parser.add_argument("scope", choices=["pilot", "full", "multicode", "ifcsg"])
     parser.add_argument("--pdf", type=Path, help="Use an already downloaded copy of the pinned BCA PDF.")
+    parser.add_argument("--xlsx", type=Path, help="Use an already downloaded copy of the pinned IFC+SG Excel file.")
     parser.add_argument(
         "--provider",
         choices=["gemini", "openai"],
@@ -221,10 +495,21 @@ def main():
     )
     args = parser.parse_args()
     if args.scope == "multicode":
+        if args.pdf or args.xlsx:
+            parser.error("--pdf and --xlsx are not used by the multicode scope.")
+        rows = list(read_graph()[0].values())
+    elif args.scope == "ifcsg":
         if args.pdf:
             parser.error("--pdf is used only by the pilot and full BCA PDF scopes.")
-        rows = list(read_graph()[0].values())
+        wb, digest = open_ifcsg_workbook(args.xlsx)
+        save(
+            SOURCE / "output" / "ifcsg_check.md",
+            f"pass\n\n{IFCSG_EDITION['filename']} ({IFCSG_EDITION['edition']}, {IFCSG_EDITION['revision_date']}). SHA-256 {digest}.\n".encode(),
+        )
+        rows = list(records_for_ifcsg(wb))
     else:
+        if args.xlsx:
+            parser.error("--xlsx is used only by the ifcsg scope.")
         reader = open_edition(args.pdf)
         save(SOURCE / "output" / "check.md",
              f"pass\n\n{EDITION['page_count']} PDF pages. SHA-256 {EDITION['sha256']}.\n".encode())
